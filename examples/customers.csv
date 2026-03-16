@@ -1,0 +1,8 @@
+customer,email,tier,signup_date
+Alice,alice@example.com,gold,2025-06-15
+Bob,bob@example.com,silver,2025-08-22
+Charlie,charlie@example.com,gold,2025-07-10
+David,david@example.com,bronze,2025-09-05
+Eve,eve@example.com,silver,2025-10-12
+Frank,frank@example.com,bronze,2025-11-20
+Grace,grace@example.com,gold,2025-12-03

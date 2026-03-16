@@ -1,0 +1,38 @@
+[
+  {
+    "customer": "Alice",
+    "region": "west",
+    "product": "laptop",
+    "amount": 1200.50,
+    "date": "2026-01-15",
+    "tags": ["premium", "urgent"],
+    "metadata": {
+      "discount": 0.1,
+      "shipping": "express"
+    }
+  },
+  {
+    "customer": "Bob",
+    "region": "east",
+    "product": "mouse",
+    "amount": 25.99,
+    "date": "2026-01-16",
+    "tags": ["standard"],
+    "metadata": {
+      "discount": 0,
+      "shipping": "standard"
+    }
+  },
+  {
+    "customer": "Charlie",
+    "region": "west",
+    "product": "keyboard",
+    "amount": 89.99,
+    "date": "2026-01-16",
+    "tags": ["premium"],
+    "metadata": {
+      "discount": 0.05,
+      "shipping": "express"
+    }
+  }
+]
