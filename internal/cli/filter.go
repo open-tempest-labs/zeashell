@@ -15,12 +15,16 @@ var filterCmd = &cobra.Command{
 
 Supported operators:
   Comparison: =, !=, >, >=, <, <=
-  Array: CONTAINS
+  Array: CONTAINS (supports wildcards)
   Logical: AND, OR
 
 Nested field access:
   Array indexing: field[0], field[1], etc.
   Nested paths: field.subfield.property
+
+Wildcard patterns (with CONTAINS):
+  * - Match any characters
+  ? - Match single character
 
 Examples of expressions:
   amount > 100
@@ -29,7 +33,9 @@ Examples of expressions:
   orders CONTAINS 1005
   orders[0] > 1000
   address.city = 'SF'
-  address.state = 'CA' AND tags CONTAINS 'premium'`,
+  address.state = 'CA' AND tags CONTAINS 'premium'
+  name CONTAINS '*.webshell.*'
+  service CONTAINS 'api.*.prod'`,
 	Example: `  zea load sales.csv | zea filter "amount > 100"
   zea load data.csv | zea filter "region = 'west' AND amount > 50"
   zea load data.json | zea filter "orders CONTAINS 1005"

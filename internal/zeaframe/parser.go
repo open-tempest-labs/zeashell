@@ -3,6 +3,7 @@ package zeaframe
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -527,6 +528,10 @@ func extractNestedPath(data interface{}, path string) (interface{}, error) {
 
 // containsValue checks if a value (which may be an array) contains the target value
 func containsValue(cellValue interface{}, targetValue interface{}) (bool, error) {
+	// Convert target to string to check for wildcard patterns
+	targetStr := fmt.Sprintf("%v", targetValue)
+	isWildcard := strings.Contains(targetStr, "*") || strings.Contains(targetStr, "?")
+
 	// If cellValue is a string that looks like JSON, try to parse it
 	cellStr := fmt.Sprintf("%v", cellValue)
 
@@ -538,16 +543,40 @@ func containsValue(cellValue interface{}, targetValue interface{}) (bool, error)
 	// Check if it's an array
 	arr, ok := cellValue.([]interface{})
 	if !ok {
-		// Not an array, do direct comparison
+		// Not an array, do direct comparison or pattern match
+		if isWildcard {
+			return matchesPattern(cellValue, targetStr), nil
+		}
 		return compareEqual(cellValue, targetValue), nil
 	}
 
-	// Search array for target value
+	// Search array for target value (with wildcard support)
 	for _, item := range arr {
-		if compareEqual(item, targetValue) {
-			return true, nil
+		if isWildcard {
+			if matchesPattern(item, targetStr) {
+				return true, nil
+			}
+		} else {
+			if compareEqual(item, targetValue) {
+				return true, nil
+			}
 		}
 	}
 
 	return false, nil
+}
+
+// matchesPattern checks if a value matches a wildcard pattern
+// Supports * (any characters) and ? (single character)
+func matchesPattern(value interface{}, pattern string) bool {
+	valueStr := fmt.Sprintf("%v", value)
+
+	// Use filepath.Match for glob-style pattern matching
+	matched, err := filepath.Match(pattern, valueStr)
+	if err != nil {
+		// If pattern is invalid, fall back to exact match
+		return valueStr == pattern
+	}
+
+	return matched
 }

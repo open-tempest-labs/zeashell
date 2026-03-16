@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/csv"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"io"
 	"strconv"
@@ -447,4 +448,322 @@ func getZeroValue(colType ColumnType) interface{} {
 	default:
 		return ""
 	}
+}
+
+// FromXML creates a ZeaFrame from an XML reader
+// Supports various XML structures:
+// - Array of elements: <root><item>...</item><item>...</item></root>
+// - Single object: <root>...</root>
+// Attributes and nested elements are preserved
+func FromXML(reader io.Reader) (*ZeaFrame, error) {
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read XML: %w", err)
+	}
+
+	// Parse the XML into a generic map structure
+	decoder := xml.NewDecoder(strings.NewReader(string(data)))
+	xmlMap, err := parseXMLToMap(decoder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse XML: %w", err)
+	}
+
+	// Find the array of records in the XML structure
+	records, err := extractXMLRecords(xmlMap)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert interface{} slice to map slice
+	mapRecords := make([]map[string]interface{}, len(records))
+	for i, rec := range records {
+		if m, ok := rec.(map[string]interface{}); ok {
+			mapRecords[i] = m
+		} else {
+			return nil, fmt.Errorf("invalid record type at index %d", i)
+		}
+	}
+
+	// Convert records to ZeaFrame using same logic as JSON
+	return fromJSONRecords(mapRecords)
+}
+
+// parseXMLToMap converts XML to a map[string]interface{} structure
+// This is a simplified parser that treats XML more like JSON
+func parseXMLToMap(decoder *xml.Decoder) (map[string]interface{}, error) {
+	type stackItem struct {
+		data map[string]interface{}
+		text *strings.Builder
+	}
+
+	root := stackItem{data: make(map[string]interface{}), text: &strings.Builder{}}
+	stack := []*stackItem{&root}
+	var keyStack []string
+
+	for {
+		token, err := decoder.Token()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		switch elem := token.(type) {
+		case xml.StartElement:
+			// New element
+			key := elem.Name.Local
+			newItem := &stackItem{data: make(map[string]interface{}), text: &strings.Builder{}}
+
+			// Add attributes as fields
+			for _, attr := range elem.Attr {
+				newItem.data[attr.Name.Local] = attr.Value
+			}
+
+			keyStack = append(keyStack, key)
+			stack = append(stack, newItem)
+
+		case xml.EndElement:
+			// Pop from stack
+			if len(stack) > 1 {
+				completed := stack[len(stack)-1]
+				stack = stack[:len(stack)-1]
+
+				key := keyStack[len(keyStack)-1]
+				keyStack = keyStack[:len(keyStack)-1]
+
+				parent := stack[len(stack)-1]
+
+				// Determine the value to store
+				var value interface{}
+				text := strings.TrimSpace(completed.text.String())
+
+				if len(completed.data) == 0 && text != "" {
+					// Text-only element
+					value = text
+				} else if len(completed.data) > 0 && text == "" {
+					// Element with children
+					value = completed.data
+				} else if text != "" {
+					// Mixed content - store text as special field
+					completed.data["_text"] = text
+					value = completed.data
+				} else {
+					// Empty element
+					value = ""
+				}
+
+				// If key already exists, convert to array
+				if existing, exists := parent.data[key]; exists {
+					switch v := existing.(type) {
+					case []interface{}:
+						parent.data[key] = append(v, value)
+					default:
+						parent.data[key] = []interface{}{v, value}
+					}
+				} else {
+					parent.data[key] = value
+				}
+			}
+
+		case xml.CharData:
+			// Accumulate text content
+			if len(stack) > 0 {
+				stack[len(stack)-1].text.WriteString(string(elem))
+			}
+		}
+	}
+
+	return root.data, nil
+}
+
+// extractXMLRecords finds the array of records from parsed XML
+func extractXMLRecords(xmlMap map[string]interface{}) ([]interface{}, error) {
+	// If there's only one key, drill down
+	if len(xmlMap) == 1 {
+		for _, v := range xmlMap {
+			switch val := v.(type) {
+			case []interface{}:
+				// Found array of records
+				return val, nil
+			case map[string]interface{}:
+				// Single object or needs more drilling
+				// Check if it contains an array
+				for _, innerV := range val {
+					if arr, ok := innerV.([]interface{}); ok {
+						return arr, nil
+					}
+				}
+				// Single record
+				return []interface{}{flattenXMLMap(val)}, nil
+			}
+		}
+	}
+
+	// Treat as single record
+	return []interface{}{flattenXMLMap(xmlMap)}, nil
+}
+
+// flattenXMLMap converts XML map to flat structure with JSON for nested parts
+func flattenXMLMap(m map[string]interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
+
+	for k, v := range m {
+		if k == "__text" {
+			continue // Skip text-only marker
+		}
+
+		result[k] = flattenXMLValue(v)
+	}
+
+	return result
+}
+
+// flattenXMLValue recursively flattens XML values
+func flattenXMLValue(v interface{}) interface{} {
+	switch val := v.(type) {
+	case map[string]interface{}:
+		// Check if it's a simple text-only element
+		if text, ok := val["__text"]; ok && len(val) == 1 {
+			return text
+		}
+		// Flatten nested map
+		flattened := make(map[string]interface{})
+		for k, v := range val {
+			if k != "__text" {
+				flattened[k] = flattenXMLValue(v)
+			}
+		}
+		// If still has content, convert to JSON
+		if len(flattened) > 0 {
+			jsonBytes, _ := json.Marshal(flattened)
+			return string(jsonBytes)
+		}
+		return ""
+
+	case []interface{}:
+		// Flatten array elements
+		flattened := make([]interface{}, len(val))
+		for i, item := range val {
+			flattened[i] = flattenXMLValue(item)
+		}
+		// Convert to JSON array
+		jsonBytes, _ := json.Marshal(flattened)
+		return string(jsonBytes)
+
+	default:
+		return v
+	}
+}
+
+// WriteXML writes the ZeaFrame to an XML writer
+// Creates structure: <root><record>...</record><record>...</record></root>
+func (zf *ZeaFrame) WriteXML(writer io.Writer, rootName, recordName string) error {
+	if rootName == "" {
+		rootName = "root"
+	}
+	if recordName == "" {
+		recordName = "record"
+	}
+
+	// Write XML header
+	if _, err := fmt.Fprintf(writer, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"); err != nil {
+		return err
+	}
+
+	// Write root start tag
+	if _, err := fmt.Fprintf(writer, "<%s>\n", rootName); err != nil {
+		return err
+	}
+
+	// Write each record
+	for i := 0; i < zf.Rows; i++ {
+		if _, err := fmt.Fprintf(writer, "  <%s>\n", recordName); err != nil {
+			return err
+		}
+
+		for _, col := range zf.Columns {
+			if i < len(col.Data) {
+				value := col.Data[i]
+
+				// Check if value is nested JSON (array or object)
+				valueStr := fmt.Sprintf("%v", value)
+				if strings.HasPrefix(valueStr, "[") || strings.HasPrefix(valueStr, "{") {
+					// Parse JSON and convert to nested XML
+					var jsonData interface{}
+					if err := json.Unmarshal([]byte(valueStr), &jsonData); err == nil {
+						if err := writeXMLValue(writer, col.Name, jsonData, 4); err != nil {
+							return err
+						}
+						continue
+					}
+				}
+
+				// Simple value
+				xmlValue := escapeXML(fmt.Sprintf("%v", value))
+				if _, err := fmt.Fprintf(writer, "    <%s>%s</%s>\n", col.Name, xmlValue, col.Name); err != nil {
+					return err
+				}
+			}
+		}
+
+		if _, err := fmt.Fprintf(writer, "  </%s>\n", recordName); err != nil {
+			return err
+		}
+	}
+
+	// Write root end tag
+	if _, err := fmt.Fprintf(writer, "</%s>\n", rootName); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// writeXMLValue writes a JSON value as XML
+func writeXMLValue(writer io.Writer, name string, value interface{}, indent int) error {
+	spaces := strings.Repeat(" ", indent)
+
+	switch v := value.(type) {
+	case map[string]interface{}:
+		// Object - write as nested element
+		if _, err := fmt.Fprintf(writer, "%s<%s>\n", spaces, name); err != nil {
+			return err
+		}
+		for k, val := range v {
+			if err := writeXMLValue(writer, k, val, indent+2); err != nil {
+				return err
+			}
+		}
+		if _, err := fmt.Fprintf(writer, "%s</%s>\n", spaces, name); err != nil {
+			return err
+		}
+
+	case []interface{}:
+		// Array - write each element with same tag name
+		for _, item := range v {
+			if err := writeXMLValue(writer, name, item, indent); err != nil {
+				return err
+			}
+		}
+
+	default:
+		// Scalar value
+		xmlValue := escapeXML(fmt.Sprintf("%v", v))
+		if _, err := fmt.Fprintf(writer, "%s<%s>%s</%s>\n", spaces, name, xmlValue, name); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// escapeXML escapes special XML characters
+func escapeXML(s string) string {
+	s = strings.ReplaceAll(s, "&", "&amp;")
+	s = strings.ReplaceAll(s, "<", "&lt;")
+	s = strings.ReplaceAll(s, ">", "&gt;")
+	s = strings.ReplaceAll(s, "\"", "&quot;")
+	s = strings.ReplaceAll(s, "'", "&apos;")
+	return s
 }

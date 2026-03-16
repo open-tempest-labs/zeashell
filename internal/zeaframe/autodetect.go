@@ -17,6 +17,7 @@ const (
 	FormatTSV
 	FormatJSON
 	FormatJSONL
+	FormatXML
 	FormatParquet
 )
 
@@ -33,6 +34,8 @@ func DetectFormat(filename string) FileFormat {
 		return FormatJSON
 	case ".jsonl", ".ndjson":
 		return FormatJSONL
+	case ".xml":
+		return FormatXML
 	case ".parquet":
 		return FormatParquet
 	default:
@@ -53,6 +56,8 @@ func LoadAuto(path string) (*ZeaFrame, error) {
 		return loadJSONFile(path)
 	case FormatJSONL:
 		return loadJSONLFile(path)
+	case FormatXML:
+		return loadXMLFile(path)
 	case FormatParquet:
 		return FromParquet(path)
 	default:
@@ -72,6 +77,8 @@ func LoadAutoFromReader(reader io.Reader, formatHint FileFormat) (*ZeaFrame, err
 		return FromJSON(reader)
 	case FormatJSONL:
 		return FromJSONL(reader)
+	case FormatXML:
+		return FromXML(reader)
 	default:
 		return FromCSV(reader)
 	}
@@ -90,6 +97,8 @@ func (zf *ZeaFrame) SaveAuto(path string) error {
 		return zf.saveJSONFile(path)
 	case FormatJSONL:
 		return zf.saveJSONLFile(path)
+	case FormatXML:
+		return zf.saveXMLFile(path)
 	case FormatParquet:
 		return zf.WriteParquet(path)
 	default:
@@ -179,6 +188,27 @@ func (zf *ZeaFrame) saveJSONFile(path string) error {
 	return zf.WriteJSON(file)
 }
 
+func loadXMLFile(path string) (*ZeaFrame, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open file: %w", err)
+	}
+	defer file.Close()
+
+	return FromXML(file)
+}
+
+func (zf *ZeaFrame) saveXMLFile(path string) error {
+	file, err := os.Create(path)
+	if err != nil {
+		return fmt.Errorf("failed to create file: %w", err)
+	}
+	defer file.Close()
+
+	// Use default root/record names
+	return zf.WriteXML(file, "root", "record")
+}
+
 // FormatName returns the human-readable name of a format
 func (f FileFormat) String() string {
 	switch f {
@@ -190,6 +220,8 @@ func (f FileFormat) String() string {
 		return "JSON"
 	case FormatJSONL:
 		return "JSONL"
+	case FormatXML:
+		return "XML"
 	case FormatParquet:
 		return "Parquet"
 	default:

@@ -82,6 +82,35 @@ zea load sales.csv | zea select customer,amount
 zea load data.csv | zea select region,product,date
 ```
 
+### `zea sort [columns]`
+
+Sort rows by one or more columns with optional order specification.
+
+**Column format**: `column[:asc|:desc]`
+- `column` - Sort ascending (default)
+- `column:asc` - Sort ascending (explicit)
+- `column:desc` - Sort descending
+
+**Multiple columns** are applied in order (stable sort).
+
+**Examples:**
+
+```bash
+# Single column sorts
+zea load sales.csv | zea sort amount              # Sort by amount ascending
+zea load sales.csv | zea sort amount:desc         # Sort by amount descending
+
+# Multi-column sorts
+zea load sales.csv | zea sort region,amount       # Sort by region, then amount
+zea load sales.csv | zea sort region,amount:desc  # Region asc, amount desc
+
+# In pipelines
+zea load sales.csv | \
+  zea filter "amount > 100" | \
+  zea sort region,amount:desc | \
+  zea select region,customer,amount
+```
+
 ### `zea filter [expression]`
 
 Filter rows based on boolean expressions with support for nested field queries.
@@ -95,6 +124,7 @@ Filter rows based on boolean expressions with support for nested field queries.
 - Array indexing: `orders[0] > 1000`
 - Nested paths: `address.city = 'SF'`
 - Array contains: `tags CONTAINS 'premium'`
+- Wildcard patterns: `name CONTAINS '*.webshell.*'`
 
 **Examples:**
 
@@ -110,6 +140,11 @@ zea load data.json | zea filter "orders CONTAINS 1005"
 zea load data.json | zea filter "orders[0] > 1004"
 zea load data.json | zea filter "address.city = 'SF'"
 zea load data.json | zea filter "address.state = 'CA' AND tags CONTAINS 'premium'"
+
+# Wildcard pattern matching
+zea load data.csv | zea filter "name CONTAINS '*.webshell.*'"
+zea load data.csv | zea filter "service CONTAINS 'api.*'"
+zea load data.json | zea filter "services CONTAINS '*.prod.?????'"
 ```
 
 ### `zea group [columns] [--agg=col]`
@@ -351,7 +386,10 @@ ZeaShell supports a powerful expression language for filtering with full nested 
 - `<=` - Less than or equal
 
 **Array Operators:**
-- `CONTAINS` - Array membership (e.g., `tags CONTAINS 'premium'`)
+- `CONTAINS` - Array membership and wildcard matching
+  - Exact match: `tags CONTAINS 'premium'`
+  - Wildcard: `name CONTAINS '*.webshell.*'`
+  - Supports `*` (any characters) and `?` (single character)
 
 **Logical Operators:**
 - `AND` - Logical AND
@@ -384,6 +422,11 @@ tags CONTAINS 'premium' AND address.state = 'CA'
 # Complex combinations
 amount > 100 AND (region = 'west' OR region = 'east')
 orders[0] > 1000 AND address.city != 'Oakland'
+
+# Wildcard patterns
+name CONTAINS '*.webshell.*'     # Match any with 'webshell' in middle
+service CONTAINS 'api.*.prod'    # Match API services in prod
+host CONTAINS 'server-??'        # Match server-01, server-02, etc.
 ```
 
 ## Performance

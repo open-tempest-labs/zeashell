@@ -22,6 +22,7 @@ func init() {
 	rootCmd.AddCommand(loadCmd)
 	rootCmd.AddCommand(selectCmd)
 	rootCmd.AddCommand(filterCmd)
+	rootCmd.AddCommand(sortCmd)
 	rootCmd.AddCommand(groupCmd)
 	rootCmd.AddCommand(storeCmd)
 	rootCmd.AddCommand(describeCmd)

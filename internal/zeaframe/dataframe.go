@@ -144,6 +144,123 @@ func (zf *ZeaFrame) Filter(expr *Expression) (*ZeaFrame, error) {
 	return result, nil
 }
 
+// SortOrder specifies sort direction
+type SortOrder int
+
+const (
+	Ascending SortOrder = iota
+	Descending
+)
+
+// SortColumn specifies a column and its sort order
+type SortColumn struct {
+	Name  string
+	Order SortOrder
+}
+
+// Sort sorts the ZeaFrame by one or more columns
+// Returns a new sorted ZeaFrame
+func (zf *ZeaFrame) Sort(sortCols ...SortColumn) (*ZeaFrame, error) {
+	if len(sortCols) == 0 {
+		return nil, fmt.Errorf("at least one sort column required")
+	}
+
+	// Validate columns exist
+	colIndices := make([]int, len(sortCols))
+	for i, sc := range sortCols {
+		idx := zf.GetColumnIndex(sc.Name)
+		if idx == -1 {
+			return nil, fmt.Errorf("column %s not found", sc.Name)
+		}
+		colIndices[i] = idx
+	}
+
+	// Create index array
+	indices := make([]int, zf.Rows)
+	for i := range indices {
+		indices[i] = i
+	}
+
+	// Sort indices based on column values
+	sort.SliceStable(indices, func(i, j int) bool {
+		row1 := indices[i]
+		row2 := indices[j]
+
+		// Compare by each sort column in order
+		for k, sc := range sortCols {
+			colIdx := colIndices[k]
+			col := zf.Columns[colIdx]
+
+			val1 := col.Data[row1]
+			val2 := col.Data[row2]
+
+			cmp := compareForSort(val1, val2)
+
+			if cmp != 0 {
+				if sc.Order == Descending {
+					return cmp > 0
+				}
+				return cmp < 0
+			}
+			// If equal, continue to next sort column
+		}
+		return false // All columns equal
+	})
+
+	// Build result ZeaFrame with sorted rows
+	result := NewZeaFrame()
+	for _, col := range zf.Columns {
+		newCol := &Column{
+			Name:  col.Name,
+			Type:  col.Type,
+			Data:  make([]interface{}, zf.Rows),
+			Nulls: make([]bool, zf.Rows),
+		}
+		result.Columns = append(result.Columns, newCol)
+	}
+	result.Rows = zf.Rows
+
+	// Copy data in sorted order
+	for newIdx, oldIdx := range indices {
+		for i, col := range zf.Columns {
+			result.Columns[i].Data[newIdx] = col.Data[oldIdx]
+			result.Columns[i].Nulls[newIdx] = col.Nulls[oldIdx]
+		}
+	}
+
+	return result, nil
+}
+
+// compareForSort compares two values for sorting
+// Returns: -1 if val1 < val2, 0 if equal, 1 if val1 > val2
+func compareForSort(val1, val2 interface{}) int {
+	// Try numeric comparison first
+	f1, err1 := toFloat64(val1)
+	f2, err2 := toFloat64(val2)
+
+	if err1 == nil && err2 == nil {
+		if f1 < f2 {
+			return -1
+		}
+		if f1 > f2 {
+			return 1
+		}
+		return 0
+	}
+
+	// Fall back to string comparison
+	s1 := fmt.Sprintf("%v", val1)
+	s2 := fmt.Sprintf("%v", val2)
+
+	if s1 < s2 {
+		return -1
+	}
+	if s1 > s2 {
+		return 1
+	}
+	return 0
+}
+
 // GroupByResult represents the result of a groupby operation
 type GroupByResult struct {
 	zf      *ZeaFrame
