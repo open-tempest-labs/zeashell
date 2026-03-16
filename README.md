@@ -8,7 +8,7 @@ ZeaShell is a production-ready Go CLI for data processing with an embedded **Zea
 
 - **Pipeable Commands**: Full Unix pipe compatibility for data workflows
 - **ZeaFrame Engine**: Embedded columnar DataFrame library
-- **Multi-Format**: CSV, TSV, JSON, JSONL, and **Apache Parquet** support
+- **Multi-Format**: CSV, TSV, JSON, JSONL, XML and **Apache Parquet** support
 - **Fast**: Single static binary, columnar storage, minimal dependencies
 - **Expressive**: SQL-like filter expressions and aggregations
 - **Production Ready**: Type inference, error handling, streaming I/O
@@ -62,7 +62,7 @@ zea load data.parquet | zea filter "amount > 1000"
 
 ### `zea load [file]`
 
-Load CSV/TSV/JSON/JSONL/Parquet file and output to stdout. Format is auto-detected from file extension.
+Load CSV/TSV/JSON/JSONL/XML/Parquet file and output to stdout. Format is auto-detected from file extension.
 
 ```bash
 zea load sales.csv                    # Load CSV file
@@ -70,6 +70,7 @@ zea load data.tsv                     # Load TSV file
 zea load data.json                    # Load JSON file (array of objects)
 zea load events.jsonl                 # Load JSONL file (one object per line)
 zea load sales.parquet                # Load Parquet file
+zea load sales.xml                    # Load XML file
 cat sales.csv | zea load              # Load from stdin
 ```
 
