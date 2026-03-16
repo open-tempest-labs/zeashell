@@ -460,6 +460,7 @@ zeashell/
 │       ├── load.go       # Load command
 │       ├── select.go     # Select command
 │       ├── filter.go     # Filter command
+│       ├── sort.go       # Sort command
 │       ├── group.go      # Group command
 │       ├── store.go      # Store command
 │       └── describe.go   # Describe command
