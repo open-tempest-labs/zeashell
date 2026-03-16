@@ -243,16 +243,63 @@ func FromJSON(reader io.Reader) (*ZeaFrame, error) {
 	return nil, fmt.Errorf("unsupported JSON structure")
 }
 
+// flattenRecord flattens a nested record into path-based keys
+func flattenRecord(record map[string]interface{}, prefix string) map[string]interface{} {
+	result := make(map[string]interface{})
+
+	for key, value := range record {
+		fullPath := key
+		if prefix != "" {
+			fullPath = prefix + "." + key
+		}
+
+		switch v := value.(type) {
+		case map[string]interface{}:
+			// Recursively flatten nested maps
+			nested := flattenRecord(v, fullPath)
+			for nestedKey, nestedVal := range nested {
+				result[nestedKey] = nestedVal
+			}
+		case []interface{}:
+			// For arrays, check if they contain maps (expand) or primitives (keep as JSON string)
+			if len(v) > 0 {
+				if _, isMap := v[0].(map[string]interface{}); isMap {
+					// Array of objects - keep as JSON string for now
+					// (could be expanded into multiple rows in the future)
+					jsonBytes, _ := json.Marshal(v)
+					result[fullPath] = string(jsonBytes)
+				} else {
+					// Array of primitives - keep as JSON string
+					jsonBytes, _ := json.Marshal(v)
+					result[fullPath] = string(jsonBytes)
+				}
+			} else {
+				// Empty array
+				jsonBytes, _ := json.Marshal(v)
+				result[fullPath] = string(jsonBytes)
+			}
+		default:
+			// Scalar value
+			result[fullPath] = value
+		}
+	}
+
+	return result
+}
+
 // fromJSONRecords creates a ZeaFrame from array of records
 func fromJSONRecords(records []map[string]interface{}) (*ZeaFrame, error) {
 	if len(records) == 0 {
 		return NewZeaFrame(), nil
 	}
 
-	// Collect all column names
+	// Flatten all records and collect all column names
+	flatRecords := make([]map[string]interface{}, len(records))
 	columnNames := make(map[string]bool)
-	for _, record := range records {
-		for key := range record {
+
+	for i, record := range records {
+		flatRecords[i] = flattenRecord(record, "")
+		for key := range flatRecords[i] {
 			columnNames[key] = true
 		}
 	}
@@ -267,19 +314,14 @@ func fromJSONRecords(records []map[string]interface{}) (*ZeaFrame, error) {
 	zf := NewZeaFrame()
 	columnData := make(map[string][]interface{})
 	for _, col := range columns {
-		columnData[col] = make([]interface{}, 0, len(records))
+		columnData[col] = make([]interface{}, 0, len(flatRecords))
 	}
 
-	for _, record := range records {
+	for _, record := range flatRecords {
 		for _, col := range columns {
 			val, exists := record[col]
 			if !exists {
 				val = ""
-			}
-			// Handle nested structures by converting to string
-			if isNested(val) {
-				jsonBytes, _ := json.Marshal(val)
-				val = string(jsonBytes)
 			}
 			columnData[col] = append(columnData[col], val)
 		}
@@ -353,6 +395,8 @@ func inferType(data []interface{}) (ColumnType, []interface{}) {
 	hasBool := false
 	allNumeric := true
 	allBool := true
+	emptyCount := 0
+	nonEmptyCount := 0
 
 	for _, val := range data {
 		str, ok := val.(string)
@@ -362,8 +406,11 @@ func inferType(data []interface{}) (ColumnType, []interface{}) {
 
 		str = strings.TrimSpace(str)
 		if str == "" {
+			emptyCount++
 			continue
 		}
+
+		nonEmptyCount++
 
 		// Check bool
 		if str == "true" || str == "false" {
@@ -388,8 +435,11 @@ func inferType(data []interface{}) (ColumnType, []interface{}) {
 	}
 
 	// Determine type based on analysis
+	// If more than 50% of values are empty, treat as string to avoid confusing zero values
 	var colType ColumnType
-	if allBool && hasBool {
+	if emptyCount > nonEmptyCount {
+		colType = StringType
+	} else if allBool && hasBool {
 		colType = BoolType
 	} else if allNumeric && hasFloat {
 		colType = Float64Type
@@ -587,21 +637,165 @@ func extractXMLRecords(xmlMap map[string]interface{}) ([]interface{}, error) {
 				// Found array of records
 				return val, nil
 			case map[string]interface{}:
-				// Single object or needs more drilling
-				// Check if it contains an array
-				for _, innerV := range val {
-					if arr, ok := innerV.([]interface{}); ok {
-						return arr, nil
-					}
-				}
-				// Single record
-				return []interface{}{flattenXMLMap(val)}, nil
+				// Check if this contains multiple arrays (peer structures)
+				// or a mix of single elements and arrays
+				return extractPeerStructures(val)
 			}
 		}
 	}
 
-	// Treat as single record
-	return []interface{}{flattenXMLMap(xmlMap)}, nil
+	// Multiple top-level elements - treat as peer structures
+	return extractPeerStructures(xmlMap)
+}
+
+// extractPeerStructures handles XML with peer elements at the same level
+// For example: <root><gateway>...</gateway><service>...</service><service>...</service></root>
+// This recursively expands all arrays to create flat records with path-based columns
+func extractPeerStructures(xmlMap map[string]interface{}) ([]interface{}, error) {
+	// Recursively expand all arrays at all levels
+	expandedRecords := expandAllArrays("", xmlMap)
+	if len(expandedRecords) > 0 {
+		return expandedRecords, nil
+	}
+
+	// No arrays found, treat as single record
+	return []interface{}{flattenXMLRecord(xmlMap, "")}, nil
+}
+
+// expandAllArrays recursively expands arrays in the XML structure
+// Returns records with path-based column names (e.g., "topology.gateway.provider.role")
+func expandAllArrays(parentPath string, data interface{}) []interface{} {
+	var records []interface{}
+
+	switch val := data.(type) {
+	case map[string]interface{}:
+		// First, recursively process all non-array children to expand nested structures
+		processedMap := make(map[string]interface{})
+		var arrayKeys []string
+		var expandedArrayRecords [][]interface{}
+
+		for k, v := range val {
+			elementPath := k
+			if parentPath != "" {
+				elementPath = parentPath + "." + k
+			}
+
+			if arr, ok := v.([]interface{}); ok {
+				// This is an array - expand each element
+				arrayKeys = append(arrayKeys, k)
+				var arrayRecords []interface{}
+				for _, item := range arr {
+					expanded := expandAllArrays(elementPath, item)
+					arrayRecords = append(arrayRecords, expanded...)
+				}
+				expandedArrayRecords = append(expandedArrayRecords, arrayRecords)
+			} else if nestedMap, ok := v.(map[string]interface{}); ok {
+				// Nested map - recursively expand it (it might contain arrays)
+				nestedExpanded := expandAllArrays(elementPath, nestedMap)
+				// If the nested map expands to records, we need to handle them
+				// For now, if it's a single record, merge its fields into processedMap
+				if len(nestedExpanded) == 1 {
+					if recMap, ok := nestedExpanded[0].(map[string]interface{}); ok {
+						for fk, fv := range recMap {
+							processedMap[fk] = fv
+						}
+					}
+				} else if len(nestedExpanded) > 1 {
+					// Multiple records from nested expansion - treat as array expansion
+					arrayKeys = append(arrayKeys, k)
+					expandedArrayRecords = append(expandedArrayRecords, nestedExpanded)
+				}
+			} else {
+				// Scalar value - add to processed map with full path
+				processedMap[elementPath] = flattenXMLValue(v)
+			}
+		}
+
+		if len(arrayKeys) == 0 {
+			// No arrays - return the flattened map as a single record
+			if len(processedMap) > 0 {
+				return []interface{}{processedMap}
+			}
+			return []interface{}{}
+		}
+
+		// We have arrays - need to create one record per array element
+		// Each array element record gets merged with the base scalar fields
+		for _, arrayRecords := range expandedArrayRecords {
+			for _, arrayRec := range arrayRecords {
+				mergedRecord := make(map[string]interface{})
+				// Add base scalar fields
+				for k, v := range processedMap {
+					mergedRecord[k] = v
+				}
+				// Merge in the array element fields
+				if recMap, ok := arrayRec.(map[string]interface{}); ok {
+					for k, v := range recMap {
+						mergedRecord[k] = v
+					}
+				}
+				records = append(records, mergedRecord)
+			}
+		}
+
+	case []interface{}:
+		// Array at top level
+		for _, item := range val {
+			expanded := expandAllArrays(parentPath, item)
+			records = append(records, expanded...)
+		}
+
+	default:
+		// Scalar value
+		record := make(map[string]interface{})
+		if parentPath != "" {
+			record[parentPath] = flattenXMLValue(val)
+		} else {
+			record["value"] = flattenXMLValue(val)
+		}
+		records = append(records, record)
+	}
+
+	return records
+}
+
+// flattenXMLRecord flattens an XML map into path-based column names
+func flattenXMLRecord(m map[string]interface{}, prefix string) map[string]interface{} {
+	result := make(map[string]interface{})
+
+	for k, v := range m {
+		if k == "__text" {
+			// Handle text content
+			if prefix != "" {
+				result[prefix] = flattenXMLValue(v)
+			} else {
+				result["__text"] = flattenXMLValue(v)
+			}
+			continue
+		}
+
+		fullPath := k
+		if prefix != "" {
+			fullPath = prefix + "." + k
+		}
+
+		switch val := v.(type) {
+		case map[string]interface{}:
+			// Recursively flatten nested maps
+			nested := flattenXMLRecord(val, fullPath)
+			for nestedKey, nestedVal := range nested {
+				result[nestedKey] = nestedVal
+			}
+		case []interface{}:
+			// Arrays are kept as JSON strings (consistent with JSON handling)
+			jsonBytes, _ := json.Marshal(val)
+			result[fullPath] = string(jsonBytes)
+		default:
+			result[fullPath] = flattenXMLValue(v)
+		}
+	}
+
+	return result
 }
 
 // flattenXMLMap converts XML map to flat structure with JSON for nested parts

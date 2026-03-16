@@ -13,6 +13,64 @@ ZeaShell is a production-ready Go CLI for data processing with an embedded **Zea
 - **Expressive**: SQL-like filter expressions and aggregations
 - **Production Ready**: Type inference, error handling, streaming I/O
 - **Parquet Support**: Native Parquet read/write with Apache Arrow
+- **Path-Based Columns**: Nested JSON/XML structures flattened to dotted column names
+
+## Path-Based Column Semantics
+
+ZeaShell automatically flattens nested structures (JSON objects and XML hierarchies) into **path-based column names** using dot notation:
+
+### JSON Flattening
+
+```bash
+# Input JSON with nested objects
+$ cat data.json
+[
+  {"customer": "Alice", "address": {"city": "SF", "state": "CA"}},
+  {"customer": "Bob", "address": {"city": "LA", "state": "CA"}}
+]
+
+# Flattened to path-based columns
+$ zea load data.json
+customer,address.city,address.state
+Alice,SF,CA
+Bob,LA,CA
+
+# Filter using dotted paths
+$ zea load data.json | zea filter "address.city = 'SF'"
+```
+
+### XML Flattening
+
+```bash
+# XML with hierarchical structure
+$ cat topology.xml
+<topology>
+  <gateway>
+    <provider>
+      <role>authentication</role>
+      <name>ShiroProvider</name>
+    </provider>
+  </gateway>
+  <service>
+    <role>WEBHDFS</role>
+    <url>http://localhost:50070/webhdfs</url>
+  </service>
+</topology>
+
+# Flattened to path-based columns
+$ zea load topology.xml
+gateway.provider.role,gateway.provider.name,service.role,service.url
+authentication,ShiroProvider,WEBHDFS,http://localhost:50070/webhdfs
+
+# Filter by path to show only services
+$ zea load topology.xml | zea filter "service.role != ''"
+```
+
+**Benefits:**
+- **No metadata pollution**: No format-specific columns like `_element`
+- **Natural filtering**: Use dotted paths directly in expressions
+- **Unified model**: Same semantics across JSON and XML
+- **Path semantics**: Column names preserve hierarchical structure
 
 ## Installation
 
@@ -69,6 +127,7 @@ zea load sales.csv                    # Load CSV file
 zea load data.tsv                     # Load TSV file
 zea load data.json                    # Load JSON file (array of objects)
 zea load events.jsonl                 # Load JSONL file (one object per line)
+zea load topology.xml                 # Load XML file (flattened to path-based columns)
 zea load sales.parquet                # Load Parquet file
 zea load sales.xml                    # Load XML file
 cat sales.csv | zea load              # Load from stdin
@@ -114,18 +173,18 @@ zea load sales.csv | \
 
 ### `zea filter [expression]`
 
-Filter rows based on boolean expressions with support for nested field queries.
+Filter rows based on boolean expressions with support for path-based column names.
 
 **Supported operators:**
 - Comparison: `=`, `!=`, `>`, `>=`, `<`, `<=`
 - Array membership: `CONTAINS`
 - Logical: `AND`, `OR`
 
-**Nested field support:**
-- Array indexing: `orders[0] > 1000`
-- Nested paths: `address.city = 'SF'`
-- Array contains: `tags CONTAINS 'premium'`
-- Wildcard patterns: `name CONTAINS '*.webshell.*'`
+**Path-based columns:**
+- Dotted paths from flattened JSON/XML: `address.city = 'SF'`
+- Works naturally with nested structures: `gateway.provider.role = 'authentication'`
+- Array indexing for legacy JSON strings: `orders[0] > 1000`
+- Wildcard patterns: `service.role CONTAINS 'WEB*'`
 
 **Examples:**
 
@@ -136,16 +195,19 @@ zea load sales.csv | zea filter "region = 'west'"
 zea load sales.csv | zea filter "amount > 100 AND region = 'west'"
 zea load sales.csv | zea filter "customer != '' AND amount >= 50"
 
-# Nested field queries (JSON)
-zea load data.json | zea filter "orders CONTAINS 1005"
-zea load data.json | zea filter "orders[0] > 1004"
+# Path-based filtering (JSON/XML)
 zea load data.json | zea filter "address.city = 'SF'"
 zea load data.json | zea filter "address.state = 'CA' AND tags CONTAINS 'premium'"
+zea load topology.xml | zea filter "service.role = 'WEBHDFS'"
+zea load topology.xml | zea filter "gateway.provider.role = 'authentication'"
 
 # Wildcard pattern matching
 zea load data.csv | zea filter "name CONTAINS '*.webshell.*'"
-zea load data.csv | zea filter "service CONTAINS 'api.*'"
+zea load topology.xml | zea filter "service.role CONTAINS 'WEB*'"
 zea load data.json | zea filter "services CONTAINS '*.prod.?????'"
+
+# Array operations (for array-valued columns)
+zea load data.json | zea filter "orders CONTAINS 1005"
 ```
 
 ### `zea group [columns] [--agg=col]`
@@ -184,6 +246,7 @@ zea load sales.csv | zea filter "amount > 100" | zea store output.csv
 zea load data.csv | zea select customer,total | zea store summary.tsv
 zea load data.csv | zea filter "amount > 100" | zea store filtered.json
 zea load events.csv | zea filter "status = 'active'" | zea store events.jsonl
+zea load topology.xml | zea filter "service.role != ''" | zea store services.xml
 zea load sales.csv | zea filter "amount > 1000" | zea store high_value.parquet
 ```
 
@@ -198,7 +261,7 @@ zea load data.csv | zea filter "amount > 100" | zea describe
 
 ## Format Conversion
 
-ZeaShell supports seamless conversion between **all 5 formats**: CSV, TSV, JSON, JSONL, and Parquet.
+ZeaShell supports seamless conversion between **all 6 formats**: CSV, TSV, JSON, JSONL, XML, and Parquet.
 
 ```bash
 # Any format to any format
@@ -206,6 +269,8 @@ zea load data.csv | zea store data.parquet      # CSV → Parquet
 zea load data.parquet | zea store data.tsv      # Parquet → TSV
 zea load data.tsv | zea store data.jsonl        # TSV → JSONL
 zea load data.jsonl | zea store data.csv        # JSONL → CSV
+zea load topology.xml | zea store data.csv      # XML → CSV (flattened)
+zea load data.json | zea store topology.xml     # JSON → XML
 
 # Full conversion chain
 zea load input.csv | \
@@ -216,7 +281,7 @@ zea load temp.jsonl | \
   zea store output.parquet
 ```
 
-**All formats work interchangeably!** See [FORMAT_CONVERSION.md](FORMAT_CONVERSION.md) for complete guide.
+**All formats work interchangeably!** Nested JSON and XML structures are automatically flattened to path-based columns.
 
 ## Examples
 
@@ -376,7 +441,7 @@ ZeaFrame automatically infers column types:
 
 ## Expression Language
 
-ZeaShell supports a powerful expression language for filtering with full nested field support:
+ZeaShell supports a powerful expression language for filtering with **path-based column names**:
 
 **Comparison Operators:**
 - `=` - Equal
@@ -396,9 +461,10 @@ ZeaShell supports a powerful expression language for filtering with full nested 
 - `AND` - Logical AND
 - `OR` - Logical OR
 
-**Nested Field Access:**
-- Array indexing: `field[0]`, `field[1]`, etc.
-- Nested paths: `field.subfield.property`
+**Path-Based Column Names:**
+- Dotted paths from flattened JSON/XML: `address.city`, `service.role`, `gateway.provider.name`
+- Use directly in expressions: `address.city = 'SF'`
+- Array indexing for legacy JSON: `orders[0] > 1000`
 - Works with all comparison operators
 
 **Value Types:**
@@ -414,20 +480,24 @@ region = 'west'
 customer != ''
 amount >= 50 AND region = 'CA'
 
-# Nested field queries
-orders CONTAINS 1005
-orders[0] > 1000
+# Path-based column filtering (JSON/XML)
 address.city = 'SF'
-tags CONTAINS 'premium' AND address.state = 'CA'
+address.state = 'CA' AND tags CONTAINS 'premium'
+service.role = 'WEBHDFS'
+gateway.provider.role = 'authentication'
 
 # Complex combinations
 amount > 100 AND (region = 'west' OR region = 'east')
-orders[0] > 1000 AND address.city != 'Oakland'
+service.role CONTAINS 'WEB*' AND service.url CONTAINS 'localhost'
 
 # Wildcard patterns
 name CONTAINS '*.webshell.*'     # Match any with 'webshell' in middle
-service CONTAINS 'api.*.prod'    # Match API services in prod
+service.role CONTAINS 'WEB*'     # Match WEBHDFS, WEBHCAT, WEBHBASE
 host CONTAINS 'server-??'        # Match server-01, server-02, etc.
+
+# Array operations (for array-valued columns)
+orders CONTAINS 1005
+tags CONTAINS 'premium'
 ```
 
 ## Performance

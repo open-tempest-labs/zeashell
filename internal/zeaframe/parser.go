@@ -246,22 +246,42 @@ func (e *Expression) Evaluate(zf *ZeaFrame, rowIdx int) (bool, error) {
 	}
 
 	// Leaf node - comparison
-	col, err := zf.GetColumn(e.Column)
-	if err != nil {
-		return false, err
+	// First try the full column name (e.g., "service.role" as a complete column name)
+	fullColName := e.Column
+	if e.NestedPath != "" {
+		fullColName = e.Column + "." + e.NestedPath
 	}
 
-	if rowIdx >= len(col.Data) {
-		return false, fmt.Errorf("row index out of bounds")
-	}
+	col, err := zf.GetColumn(fullColName)
+	var cellValue interface{}
+	var actualValue interface{}
 
-	cellValue := col.Data[rowIdx]
+	if err == nil {
+		// Found the full path as a column name (path-based column from flattening)
+		if rowIdx >= len(col.Data) {
+			return false, fmt.Errorf("row index out of bounds")
+		}
+		cellValue = col.Data[rowIdx]
+		actualValue = cellValue
+	} else {
+		// Fall back to nested path extraction (for legacy JSON strings)
+		col, err = zf.GetColumn(e.Column)
+		if err != nil {
+			return false, err
+		}
 
-	// Extract the actual value to compare based on array index or nested path
-	actualValue, err := extractValue(cellValue, e.ArrayIndex, e.NestedPath)
-	if err != nil {
-		// If we can't extract the value (e.g., path doesn't exist), treat as not matching
-		return false, nil
+		if rowIdx >= len(col.Data) {
+			return false, fmt.Errorf("row index out of bounds")
+		}
+
+		cellValue = col.Data[rowIdx]
+
+		// Extract the actual value to compare based on array index or nested path
+		actualValue, err = extractValue(cellValue, e.ArrayIndex, e.NestedPath)
+		if err != nil {
+			// If we can't extract the value (e.g., path doesn't exist), treat as not matching
+			return false, nil
+		}
 	}
 
 	// Handle CONTAINS operator specially
