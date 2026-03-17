@@ -10,6 +10,8 @@ ZeaShell is a production-ready Go CLI for data processing with an embedded **Zea
 - **ZeaFrame Engine**: Embedded columnar DataFrame library
 - **Multi-Format**: CSV, TSV, JSON, JSONL, XML and **Apache Parquet** support
 - **HTTP/HTTPS Support**: Load data directly from URLs
+- **Relational Joins**: Inner, left, right, and full outer joins on multiple keys
+- **Pivot/Unpivot**: Transform between long and wide formats
 - **Fast**: Single static binary, columnar storage, minimal dependencies
 - **Expressive**: SQL-like filter expressions and aggregations
 - **Production Ready**: Type inference, error handling, streaming I/O
@@ -250,6 +252,123 @@ zea load sales.csv | zea group region,product --sum=amount --avg=amount
 
 # Multiple aggregations
 zea load sales.csv | zea group customer --sum=amount --count=1 --avg=amount
+```
+
+### `zea join [left-source] [right-source]`
+
+Join two datasets on one or more key columns.
+
+**Join types:**
+- `inner` - Only rows with matches in both datasets (default)
+- `left` - All left rows, NULLs for unmatched right
+- `right` - All right rows, NULLs for unmatched left
+- `full` - All rows from both, NULLs where no match
+
+**Flags:**
+- `--on=column[,column2,...]` - Join key column(s) (required)
+- `--type=inner|left|right|full` - Join type (default: inner)
+
+**Column name collisions** are resolved by adding `_right` suffix to right-side columns.
+
+**Examples:**
+
+```bash
+# Inner join on single key
+zea join customers.csv orders.csv --on=cust_id
+
+# Left join on multiple keys
+zea join customers.csv orders.csv --on=id,date --type=left
+
+# Join stdin with file
+zea load customers.csv | zea join orders.csv --on=cust_id
+
+# Join and filter
+zea join customers.csv orders.csv --on=cust_id --type=left \
+  | zea filter "order_id IS NULL"
+
+# Join from remote URLs
+zea join https://data.example.com/customers.csv \
+  https://data.example.com/orders.csv --on=cust_id
+
+# Complex pipeline with join
+zea load sales.csv \
+  | zea filter "amount > 100" \
+  | zea join products.csv --on=product_id \
+  | zea select customer,product.name,amount \
+  | zea store enriched.parquet
+```
+
+### `zea pivot`
+
+Transform long format data to wide format.
+
+**Flags:**
+- `--index=column[,column2,...]` - Index column(s) to group by (required)
+- `--column=column` - Column whose values become new column names (required)
+- `--values=column` - Column whose values populate the new columns (required)
+
+**Example transformation:**
+```
+Input (long):                Output (wide):
+date,region,amount          date,west,east
+2026-01-01,west,100         2026-01-01,100,50
+2026-01-01,east,50          2026-01-02,70,
+2026-01-02,west,70
+```
+
+**Examples:**
+
+```bash
+# Simple pivot
+zea load sales_long.csv \
+  | zea pivot --index=date --column=region --values=amount
+
+# Multiple index columns
+zea load data.csv \
+  | zea pivot --index=year,month --column=category --values=sales
+
+# Pivot in pipeline
+zea load sales.csv \
+  | zea filter "amount > 0" \
+  | zea pivot --index=date --column=product --values=amount \
+  | zea store sales_wide.parquet
+```
+
+### `zea unpivot`
+
+Transform wide format data to long format.
+
+**Flags:**
+- `--id=column[,column2,...]` - ID column(s) to preserve (optional)
+- `--values=column[,column2,...]` - Columns to unpivot into rows (required)
+- `--name=column` - Name for column containing original column names (default: variable)
+- `--value=column` - Name for column containing values (default: value)
+
+**Example transformation:**
+```
+Input (wide):                 Output (long):
+date,west,east               date,region,amount
+2026-01-01,100,50            2026-01-01,west,100
+2026-01-02,70,               2026-01-01,east,50
+                             2026-01-02,west,70
+```
+
+**Examples:**
+
+```bash
+# Simple unpivot
+zea load sales_wide.csv \
+  | zea unpivot --id=date --values=west,east --name=region --value=amount
+
+# Multiple ID columns
+zea load data.csv \
+  | zea unpivot --id=year,month --values=q1,q2,q3,q4 --name=quarter --value=sales
+
+# Unpivot in pipeline
+zea load sales_wide.csv \
+  | zea unpivot --id=date --values=west,east,north,south --name=region --value=amount \
+  | zea filter "amount > 100" \
+  | zea store sales_long.csv
 ```
 
 ### `zea store [file]`

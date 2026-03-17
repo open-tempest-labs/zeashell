@@ -26,4 +26,7 @@ func init() {
 	rootCmd.AddCommand(groupCmd)
 	rootCmd.AddCommand(storeCmd)
 	rootCmd.AddCommand(describeCmd)
+	rootCmd.AddCommand(joinCmd)
+	rootCmd.AddCommand(pivotCmd)
+	rootCmd.AddCommand(unpivotCmd)
 }
