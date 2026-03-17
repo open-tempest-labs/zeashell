@@ -9,12 +9,13 @@ ZeaShell is a production-ready Go CLI for data processing with an embedded **Zea
 - **Pipeable Commands**: Full Unix pipe compatibility for data workflows
 - **ZeaFrame Engine**: Embedded columnar DataFrame library
 - **Multi-Format**: CSV, TSV, JSON, JSONL, XML and **Apache Parquet** support
+- **Partitioned Data**: Glob patterns, directory loading, parallel multi-file operations
 - **HTTP/HTTPS Support**: Load data directly from URLs
 - **Relational Joins**: Inner, left, right, and full outer joins on multiple keys
 - **Pivot/Unpivot**: Transform between long and wide formats
-- **Fast**: Single static binary, columnar storage, minimal dependencies
+- **Fast**: Single static binary, columnar storage, minimal dependencies, parallel loading
 - **Expressive**: SQL-like filter expressions and aggregations
-- **Production Ready**: Type inference, error handling, streaming I/O
+- **Production Ready**: Type inference, error handling, streaming I/O, schema evolution
 - **Parquet Support**: Native Parquet read/write with Apache Arrow
 - **Path-Based Columns**: Nested JSON/XML structures flattened to dotted column names
 
@@ -128,26 +129,67 @@ zea load data.parquet | zea filter "amount > 1000"
 
 ## Commands
 
-### `zea load [file|url]`
+### `zea load [file|url|pattern|directory]`
 
-Load CSV/TSV/JSON/JSONL/XML/Parquet file or HTTP/HTTPS URL and output to stdout. Format is auto-detected from file extension.
+Load files, glob patterns, directories, or URLs and output to stdout. Format is auto-detected from file extension.
+
+**Supports:**
+- Single files
+- Glob patterns (`*.csv`, `sales/**/*.parquet`)
+- Directories (recursive by default)
+- Multiple files (comma-separated)
+- HTTP/HTTPS URLs
+- stdin
+
+**Multi-file loading:**
+- Files loaded in parallel for performance
+- Schema inferred from first 3 files
+- All files unioned into single table
+- Missing columns filled with NULLs
+
+**Flags:**
+- `--max-files=N` - Limit number of files (default: unlimited)
+- `--parallel=N` - Number of parallel workers (default: 8)
+- `--format=fmt` - Filter by format (csv, parquet, json, etc.)
+- `--schema-preview` - Show schema without loading data
 
 ```bash
-# Local files
+# Single files
 zea load sales.csv                    # Load CSV file
-zea load data.tsv                     # Load TSV file
-zea load data.json                    # Load JSON file (array of objects)
-zea load events.jsonl                 # Load JSONL file (one object per line)
-zea load topology.xml                 # Load XML file (flattened to path-based columns)
-zea load sales.parquet                # Load Parquet file
+zea load data.parquet                 # Load Parquet file
+
+# Glob patterns
+zea load "*.csv"                      # All CSV files in current dir
+zea load "sales/date=*.parquet"       # Partitioned Parquet files
+zea load "sales/date=2026-03-*/*.csv" # Specific date partitions
+
+# Directories (recursive by default)
+zea load "sales/"                     # All supported files in sales/
+zea load "sales/**/*.parquet"         # All Parquet files recursively
+
+# Multiple files
+zea load "file1.csv,file2.csv"        # Load multiple specific files
+zea load "data/*.csv,archive/*.csv"   # Multiple glob patterns
+
+# Schema preview
+zea load "sales/" --schema-preview    # Show inferred schema
+
+# Performance tuning
+zea load "sales/" --parallel=16       # Use 16 workers
+zea load "sales/" --max-files=100     # Limit to 100 files
 
 # Remote URLs (HTTP/HTTPS)
 zea load https://example.com/data.csv # Load CSV from URL
-zea load http://api.example.com/data.json  # Load JSON from URL
 zea load https://data.gov/dataset.parquet  # Load Parquet from URL
 
 # stdin
 cat sales.csv | zea load              # Load from stdin
+
+# Partitioned data workflows
+zea load "sales/date=2026-03-*/*.parquet" \
+  | zea filter "amount > 1000" \
+  | zea group region --sum=amount \
+  | zea store summary.parquet
 ```
 
 ### `zea select [columns]`
@@ -450,6 +492,164 @@ zea load "https://example.com/sales.csv" | \
 - 30-second timeout for remote requests
 - Streaming for CSV, TSV, JSON, JSONL, XML formats
 - Temporary file download for Parquet (requires seekable access)
+
+## Partitioned Data & Globbing
+
+ZeaShell excels at loading **partitioned data** with glob patterns and directory traversal - perfect for data lake workflows and Hive-style partitioning.
+
+### Partitioned Data Loading
+
+```bash
+# Directory structure:
+# sales/
+# ├── date=2026-03-01/sales.parquet
+# ├── date=2026-03-02/sales.parquet
+# └── date=2026-03-03/sales.parquet
+
+# Load entire directory (all partitions)
+zea load "sales/"
+
+# Load specific date partitions
+zea load "sales/date=2026-03-01/*.parquet"
+
+# Load date range with glob
+zea load "sales/date=2026-03-*/*.parquet"
+
+# Nested partitions
+zea load "sales/year=2026/month=03/**/*.parquet"
+```
+
+### Glob Patterns
+
+```bash
+# Simple wildcards
+zea load "*.csv"                      # All CSV in current directory
+zea load "data/*.parquet"             # All Parquet in data/
+
+# Recursive glob
+zea load "sales/**/*.csv"             # All CSV files recursively
+
+# Multiple patterns
+zea load "jan/*.csv,feb/*.csv"        # Comma-separated patterns
+
+# Complex patterns
+zea load "sales/date=2026-*/region=*/*.parquet"
+```
+
+### Performance Features
+
+**Parallel Loading:**
+```bash
+# 8 workers by default
+zea load "sales/"
+
+# Tune parallelism
+zea load "sales/" --parallel=16
+
+# Limit files for safety
+zea load "sales/" --max-files=1000
+```
+
+**Schema Evolution:**
+```bash
+# Files with different schemas are automatically unioned
+# Missing columns are filled with NULLs
+
+# sales/2026-01.csv: id,amount
+# sales/2026-02.csv: id,amount,region
+
+zea load "sales/*.csv"
+# Result has all columns: id, amount, region
+# Rows from 2026-01 have NULL for region
+```
+
+### Real-World Workflows
+
+**Analyze Partitioned Sales Data:**
+```bash
+zea load "sales/date=2026-03-*/*.parquet" \
+  | zea filter "amount > 1000" \
+  | zea group region --sum=amount --count=1 \
+  | zea store sales_summary.parquet
+```
+
+**Join Partitioned Data with Dimension Tables:**
+```bash
+zea load "transactions/date=*/*.parquet" \
+  | zea join "dimensions/customers.csv" --on=customer_id \
+  | zea filter "tier = 'Gold'" \
+  | zea group product --sum=amount
+```
+
+**Time-Series Pivot:**
+```bash
+zea load "metrics/date=2026-*/*.csv" \
+  | zea pivot --index=metric --column=date --values=value \
+  | zea store metrics_wide.parquet
+```
+
+**Schema Preview (No Loading):**
+```bash
+# Quickly check schema before loading large datasets
+zea load "sales/" --schema-preview
+
+# Output:
+# Found 156 files
+#
+# Inferred schema:
+#   customer: string
+#   region: string
+#   amount: int64
+#   date: string
+#   product: string
+```
+
+### Cloud Storage via Volumez Mounts
+
+ZeaShell works seamlessly with cloud storage through filesystem mounts (Volumez, FUSE, etc.):
+
+```bash
+# S3 bucket mounted at /mnt/s3-data via Volumez
+zea load "/mnt/s3-data/sales/date=2026-*/*.parquet"
+
+# Azure Blob mounted at /mnt/azure
+zea load "/mnt/azure/warehouse/**/*.csv"
+
+# Local, S3, GCS - all the same to ZeaShell
+zea load "/mnt/*/sales/*.parquet" \
+  | zea filter "amount > 1000" \
+  | zea store /mnt/local/summary.parquet
+```
+
+**Benefits:**
+- Cloud-agnostic (S3, Azure, GCS, MinIO)
+- Standard Unix permissions and tooling
+- Volumez handles optimization (caching, prefetching)
+- No cloud SDK dependencies in ZeaShell
+- Use standard Unix tools: `ls`, `find`, `du` work on cloud data
+
+**Example: Petabyte-scale analysis**
+```bash
+# S3 data lake mounted via Volumez at /mnt/datalake
+# 10TB of partitioned Parquet across 1000+ files
+
+zea load "/mnt/datalake/events/year=2026/month=03/**/*.parquet" \
+  | zea filter "user_tier = 'premium' AND revenue > 100" \
+  | zea group country --sum=revenue --count=1 \
+  | zea pivot --index=country --column=product --values=sum_revenue \
+  | zea store /mnt/local/premium_revenue_2026_03.parquet
+
+# ZeaShell handles:
+# - Parallel loading (1000+ files)
+# - Schema evolution (files may have different columns)
+# - Memory-efficient streaming
+
+# Volumez handles:
+# - S3 authentication
+# - Intelligent caching
+# - Parallel S3 reads
+# - Network optimization
+```
 
 ## Examples
 

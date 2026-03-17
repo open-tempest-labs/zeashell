@@ -1,0 +1,13 @@
+customer,email,tier
+Alice,alice@example.com,Gold
+Bob,bob@example.com,Silver
+Charlie,charlie@example.com,Gold
+Diana,diana@example.com,Bronze
+Eve,eve@example.com,Silver
+Frank,frank@example.com,Platinum
+Grace,grace@example.com,Bronze
+Henry,henry@example.com,Gold
+Ivy,ivy@example.com,Platinum
+Jack,jack@example.com,Silver
+Kelly,kelly@example.com,Gold
+Leo,leo@example.com,Bronze

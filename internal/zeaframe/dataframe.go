@@ -17,6 +17,24 @@ const (
 	MultiType
 )
 
+// String returns the string representation of a ColumnType
+func (ct ColumnType) String() string {
+	switch ct {
+	case StringType:
+		return "string"
+	case Int64Type:
+		return "int64"
+	case Float64Type:
+		return "float64"
+	case BoolType:
+		return "bool"
+	case MultiType:
+		return "multi"
+	default:
+		return "unknown"
+	}
+}
+
 // Column represents a typed column of data
 type Column struct {
 	Name   string
