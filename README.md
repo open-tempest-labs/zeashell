@@ -75,21 +75,28 @@ $ zea load topology.xml | zea filter "service.role != ''"
 
 ## Installation
 
+### Homebrew (macOS/Linux)
+
+```bash
+brew tap open-tempest-labs/zeashell
+brew install zeashell
+```
+
+### Using Go Install
+
+```bash
+go install github.com/open-tempest-labs/zeashell/cmd/zea@latest
+```
+
 ### Build from Source
 
 ```bash
-git clone https://github.com/lmccay/zeashell
+git clone https://github.com/open-tempest-labs/zeashell
 cd zeashell
 go build -o zea ./cmd/zea
 ```
 
 The `zea` binary is now ready to use!
-
-### Install
-
-```bash
-go install github.com/lmccay/zeashell/cmd/zea@latest
-```
 
 ## Quick Start
 
