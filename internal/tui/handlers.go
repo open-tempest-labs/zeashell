@@ -86,11 +86,17 @@ func (v *Viewer) applyTransformations() {
 
 // showFilterDialog shows a dialog to input filter expression
 func (v *Viewer) showFilterDialog() {
+	// Create help text
+	helpText := tview.NewTextView().
+		SetDynamicColors(true).
+		SetText(getFilterHelpText())
+	helpText.SetBorder(false)
+
 	form := tview.NewForm()
-	form.SetBorder(true).SetTitle(" Filter Expression ")
+	form.SetBorder(false)
 
 	// Add input field with current filter
-	form.AddInputField("Expression", v.filterExpr, 50, nil, nil)
+	form.AddInputField("Expression", v.filterExpr, 60, nil, nil)
 
 	form.AddButton("Apply", func() {
 		expr := form.GetFormItem(0).(*tview.InputField).GetText()
@@ -109,16 +115,30 @@ func (v *Viewer) showFilterDialog() {
 		v.pages.RemovePage("filter")
 	})
 
-	// Center the form
+	// Combine help and form
+	container := tview.NewFlex().SetDirection(tview.FlexRow).
+		AddItem(helpText, 6, 0, false).
+		AddItem(form, 4, 0, true)
+	container.SetBorder(true).SetTitle(" Filter Expression ")
+
+	// Center the container
 	modal := tview.NewFlex().
 		AddItem(nil, 0, 1, false).
 		AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
 			AddItem(nil, 0, 1, false).
-			AddItem(form, 7, 1, true).
-			AddItem(nil, 0, 1, false), 80, 1, true).
+			AddItem(container, 12, 1, true).
+			AddItem(nil, 0, 1, false), 90, 1, true).
 		AddItem(nil, 0, 1, false)
 
 	v.pages.AddPage("filter", modal, true, true)
+}
+
+// getFilterHelpText returns helpful filter syntax examples
+func getFilterHelpText() string {
+	return `[yellow]Examples:[white] amount > 1000  |  region = 'West'  |  amount > 1000 AND region = 'West'
+
+[yellow]Operators:[white] = != > >= < <=  |  AND OR  |  CONTAINS
+[yellow]Rules:[white] Strings in 'quotes' | Numbers unquoted | AND/OR uppercase`
 }
 
 // showExportDialog shows a dialog to export the current view

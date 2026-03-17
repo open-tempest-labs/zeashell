@@ -11,7 +11,7 @@ var rootCmd = &cobra.Command{
 
 ZeaShell is the first component of ZeaOS, a modern data shell inspired by PICK OS
 but built for modern file formats and data processing with full Unix pipe compatibility.`,
-	Version: "0.1.0",
+	Version: "0.2.0",
 }
 
 func Execute() error {
