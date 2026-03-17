@@ -17,6 +17,9 @@ ZeaShell is a production-ready Go CLI for data processing with an embedded **Zea
 - 🎯 **Expressive** - SQL-like filter expressions and aggregations
 - 🏗️ **Production Ready** - Type inference, error handling, streaming I/O, schema evolution
 
+<img width="2084" height="1976" alt="image" src="https://github.com/user-attachments/assets/c7d690e3-410c-4788-9ad1-cdb80e3956b8" />
+
+
 ## Quick Start
 
 ### Installation
