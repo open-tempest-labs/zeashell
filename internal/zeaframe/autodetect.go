@@ -3,9 +3,11 @@ package zeaframe
 import (
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // FileFormat represents supported file formats
@@ -43,10 +45,40 @@ func DetectFormat(filename string) FileFormat {
 	}
 }
 
-// LoadAuto automatically detects format and loads the file
+// isURL checks if a path is an HTTP/HTTPS URL
+func isURL(path string) bool {
+	return strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://")
+}
+
+// fetchURL fetches content from an HTTP/HTTPS URL
+func fetchURL(url string) (io.ReadCloser, error) {
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch URL: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
+		return nil, fmt.Errorf("HTTP error: %s", resp.Status)
+	}
+
+	return resp.Body, nil
+}
+
+// LoadAuto automatically detects format and loads the file or URL
 func LoadAuto(path string) (*ZeaFrame, error) {
 	format := DetectFormat(path)
 
+	// Check if it's a URL
+	if isURL(path) {
+		return loadFromURL(path, format)
+	}
+
+	// Local file loading
 	switch format {
 	case FormatCSV:
 		return loadCSVFile(path)
@@ -64,6 +96,49 @@ func LoadAuto(path string) (*ZeaFrame, error) {
 		// Try CSV as default
 		return loadCSVFile(path)
 	}
+}
+
+// loadFromURL loads data from an HTTP/HTTPS URL
+func loadFromURL(url string, format FileFormat) (*ZeaFrame, error) {
+	reader, err := fetchURL(url)
+	if err != nil {
+		return nil, err
+	}
+	defer reader.Close()
+
+	// For Parquet, we need to download to a temp file since it requires seekable access
+	if format == FormatParquet {
+		return loadParquetFromURL(url)
+	}
+
+	return LoadAutoFromReader(reader, format)
+}
+
+// loadParquetFromURL downloads a Parquet file to a temp location and loads it
+func loadParquetFromURL(url string) (*ZeaFrame, error) {
+	reader, err := fetchURL(url)
+	if err != nil {
+		return nil, err
+	}
+	defer reader.Close()
+
+	// Create temp file
+	tmpFile, err := os.CreateTemp("", "zeashell-*.parquet")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+	defer os.Remove(tmpPath)
+
+	// Download to temp file
+	_, err = io.Copy(tmpFile, reader)
+	tmpFile.Close()
+	if err != nil {
+		return nil, fmt.Errorf("failed to download parquet file: %w", err)
+	}
+
+	// Load from temp file
+	return FromParquet(tmpPath)
 }
 
 // LoadAutoFromReader loads data from a reader with format hint

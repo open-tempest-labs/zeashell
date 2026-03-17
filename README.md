@@ -9,6 +9,7 @@ ZeaShell is a production-ready Go CLI for data processing with an embedded **Zea
 - **Pipeable Commands**: Full Unix pipe compatibility for data workflows
 - **ZeaFrame Engine**: Embedded columnar DataFrame library
 - **Multi-Format**: CSV, TSV, JSON, JSONL, XML and **Apache Parquet** support
+- **HTTP/HTTPS Support**: Load data directly from URLs
 - **Fast**: Single static binary, columnar storage, minimal dependencies
 - **Expressive**: SQL-like filter expressions and aggregations
 - **Production Ready**: Type inference, error handling, streaming I/O
@@ -118,18 +119,25 @@ zea load data.parquet | zea filter "amount > 1000"
 
 ## Commands
 
-### `zea load [file]`
+### `zea load [file|url]`
 
-Load CSV/TSV/JSON/JSONL/XML/Parquet file and output to stdout. Format is auto-detected from file extension.
+Load CSV/TSV/JSON/JSONL/XML/Parquet file or HTTP/HTTPS URL and output to stdout. Format is auto-detected from file extension.
 
 ```bash
+# Local files
 zea load sales.csv                    # Load CSV file
 zea load data.tsv                     # Load TSV file
 zea load data.json                    # Load JSON file (array of objects)
 zea load events.jsonl                 # Load JSONL file (one object per line)
 zea load topology.xml                 # Load XML file (flattened to path-based columns)
 zea load sales.parquet                # Load Parquet file
-zea load sales.xml                    # Load XML file
+
+# Remote URLs (HTTP/HTTPS)
+zea load https://example.com/data.csv # Load CSV from URL
+zea load http://api.example.com/data.json  # Load JSON from URL
+zea load https://data.gov/dataset.parquet  # Load Parquet from URL
+
+# stdin
 cat sales.csv | zea load              # Load from stdin
 ```
 
@@ -282,6 +290,40 @@ zea load temp.jsonl | \
 ```
 
 **All formats work interchangeably!** Nested JSON and XML structures are automatically flattened to path-based columns.
+
+## HTTP/HTTPS Support
+
+ZeaShell can load data directly from HTTP and HTTPS URLs, making it easy to work with remote datasets:
+
+```bash
+# Load and analyze remote CSV data
+zea load "https://raw.githubusercontent.com/datasets/gdp/master/data/gdp.csv" | \
+  zea filter "Year > 2015" | \
+  zea select "Country Name,Year,Value" | \
+  head -10
+
+# Load JSON from API and filter
+zea load "https://api.example.com/users.json" | \
+  zea filter "address.city = 'SF'" | \
+  zea group address.state --count=1
+
+# Convert remote data to local format
+zea load "https://data.gov/dataset.csv" | \
+  zea filter "year = 2023" | \
+  zea store local_2023.parquet
+
+# Chain remote sources
+zea load "https://example.com/sales.csv" | \
+  zea filter "amount > 1000" | \
+  zea group region --sum=amount
+```
+
+**Supported URL features:**
+- Automatic format detection from URL file extension
+- HTTP and HTTPS protocols
+- 30-second timeout for remote requests
+- Streaming for CSV, TSV, JSON, JSONL, XML formats
+- Temporary file download for Parquet (requires seekable access)
 
 ## Examples
 
