@@ -1,6 +1,6 @@
-# Nested Field Queries: True PICK-Style Multi-Valued Support
+# Nested Field Queries: Multi-Valued Data Support
 
-ZeaShell provides **true PICK OS-inspired multi-valued field queries** through nested JSON field operations. This allows you to query directly into arrays and nested objects without flattening your data.
+ZeaShell provides **native multi-valued field queries** through nested JSON field operations. This allows you to query directly into arrays and nested objects without flattening your data - a natural approach for hierarchical business data.
 
 ## Quick Reference
 
@@ -13,7 +13,7 @@ ZeaShell provides **true PICK OS-inspired multi-valued field queries** through n
 
 ### Implicit ANY Semantics
 
-When you use comparison operators (`>`, `>=`, `<`, `<=`) on array fields **without indexing**, ZeaShell automatically checks if **ANY element** in the array satisfies the condition. This provides intuitive PICK-like behavior:
+When you use comparison operators (`>`, `>=`, `<`, `<=`) on array fields **without indexing**, ZeaShell automatically checks if **ANY element** in the array satisfies the condition. This provides intuitive multi-valued field behavior:
 
 ```bash
 # These are equivalent:
@@ -46,16 +46,6 @@ zea load data.json | zea filter "orders < 1002"
 zea load products.json | zea filter "prices >= 50"
 ```
 
-### PICK OS Equivalence
-
-```pick
-* PICK OS (implied ANY semantics)
-SELECT CUSTOMERS WITH ORDERS > 1000
-
-# ZeaShell equivalent - same natural syntax!
-zea load customers.json | zea filter "orders > 1000"
-```
-
 ### How It Works
 
 ```bash
@@ -72,7 +62,7 @@ zea load customers.json | zea filter "orders > 1000"
 # Result: NO MATCH (no element > 1002)
 ```
 
-## Array Contains: PICK Multi-Values
+## Array Contains: Multi-Valued Fields
 
 The `CONTAINS` operator provides **exact value matching** within JSON arrays. Use this when you need to check for a specific value, not a range.
 
@@ -104,16 +94,6 @@ zea load data.json | zea filter "orders > 1000"       # ANY order > 1000
 zea load data.json | zea filter "orders CONTAINS 1005"  # Has order 1005 exactly
 ```
 
-### PICK OS Equivalence
-
-```pick
-* PICK OS
-SELECT CUSTOMERS WITH TAGS CONTAINING "PREMIUM"
-
-# ZeaShell equivalent
-zea load customers.json | zea filter "tags CONTAINS 'premium'"
-```
-
 ## Array Indexing: Access Specific Elements
 
 Extract and compare specific elements from JSON arrays by index (0-based).
@@ -136,19 +116,9 @@ zea load data.json | zea filter "orders[1] = 1005"
 zea load data.json | zea filter "tags[2] != 'urgent'"
 ```
 
-### PICK OS Equivalence
+## Nested Path Navigation: Hierarchical Data
 
-```pick
-* PICK OS (accessing multi-valued field position)
-SELECT CUSTOMERS WITH ORDERS<1> > 1000
-
-# ZeaShell equivalent
-zea load customers.json | zea filter "orders[0] > 1000"
-```
-
-## Nested Path Navigation: Sub-Values
-
-Navigate into nested JSON objects using dot notation, similar to PICK's sub-valued fields.
+Navigate into nested JSON objects using dot notation for hierarchical data structures.
 
 ### Syntax
 ```
@@ -168,19 +138,9 @@ zea load data.json | zea filter "address.state = 'CA'"
 zea load data.json | zea filter "metadata.shipping.carrier = 'UPS'"
 ```
 
-### PICK OS Equivalence
-
-```pick
-* PICK OS (sub-valued fields)
-SELECT CUSTOMERS WITH ADDRESS.CITY = "SF"
-
-# ZeaShell equivalent
-zea load customers.json | zea filter "address.city = 'SF'"
-```
-
 ## Combined Queries
 
-Combine multiple nested operations with `AND`/`OR` for complex PICK-style queries.
+Combine multiple nested operations with `AND`/`OR` for complex multi-valued queries.
 
 ### Examples
 
@@ -344,7 +304,7 @@ zea load data.json | zea filter "status CONTAINS 'active'"
 
 ## Best Practices
 
-### ✅ DO: Leverage PICK-Style Multi-Values
+### ✅ DO: Leverage Multi-Valued Fields
 ```bash
 # Store related data together
 zea load orders.json | \
@@ -402,8 +362,19 @@ zea load data.json | zea filter "orders[0] > 1004"
 
 - [JSON_SUPPORT.md](JSON_SUPPORT.md) - Complete JSON format guide
 - [JSON_COMPLETE.md](JSON_COMPLETE.md) - Implementation summary
-- [README.md](README.md) - Main documentation
+- [README.md](../README.md) - Main documentation
+- [COMMANDS.md](COMMANDS.md) - Command reference
+- [EXPRESSIONS.md](EXPRESSIONS.md) - Expression language
+
+## References
+
+### Historical Context
+
+The concept of multi-valued fields in databases has a rich history. ZeaShell's approach to nested JSON arrays and hierarchical data draws inspiration from classic database systems that recognized the power of storing related data together rather than normalizing everything into flat tables.
+
+For an in-depth exploration of how hierarchical database concepts inform modern data processing, see:
+- [PICK Reimagined](PICK_REIMAGINED.md) - Multi-valued data for the modern age
 
 ---
 
-**ZeaShell: True PICK OS multi-valued data processing for the modern age** 🗄️✨
+**ZeaShell: Native multi-valued data processing for hierarchical business data** 🗄️✨

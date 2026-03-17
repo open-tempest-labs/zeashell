@@ -9,8 +9,8 @@ var rootCmd = &cobra.Command{
 	Short: "ZeaShell - DataFrame Shell for modern file formats",
 	Long: `ZeaShell is a DataFrame shell that processes modern file formats with Unix pipe semantics.
 
-ZeaShell is the first component of ZeaOS, a modern data shell inspired by PICK OS
-but built for modern file formats and data processing with full Unix pipe compatibility.`,
+ZeaShell brings integrated data exploration and transformation to the command line - combining
+interactive discovery, powerful pipelines, and multi-valued data support for modern formats.`,
 	Version: "0.2.0",
 }
 

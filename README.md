@@ -370,10 +370,13 @@ Apache License 2.0 - see [LICENSE](LICENSE) file for details.
 ## Inspiration
 
 ZeaShell is inspired by:
-- **PICK OS** - Multi-valued databases and interactive shells
-- **Unix Philosophy** - Do one thing well, composability
+- **Multi-valued databases** - Hierarchical data models that match business reality
+- **Interactive data shells** - Integrated environments for exploration and analysis
+- **Unix Philosophy** - Do one thing well, composability through pipes
 - **Modern DataFrames** - Pandas, Polars, DataFusion
-- **DuckDB** - Fast analytical queries on CSV files
+- **DuckDB** - Fast analytical queries on data files
+
+See [PICK Reimagined](docs/PICK_REIMAGINED.md) for the historical context and how classic database concepts inspire modern data processing
 
 ## Links
 

@@ -1,10 +1,10 @@
-# JSON Support: PICK-Style Multi-Valued Data
+# JSON Support: Hierarchical Multi-Valued Data
 
-ZeaShell includes full JSON support, inspired by PICK OS's multi-valued database philosophy. Unlike JSONL (one object per line), full JSON allows for rich nested structures that mirror PICK's hierarchical data model.
+ZeaShell includes full JSON support for native hierarchical data processing. Unlike JSONL (one object per line), full JSON allows for rich nested structures that naturally represent business data relationships.
 
 ## Why JSON (Not Just JSONL)?
 
-**PICK OS Heritage**: PICK databases supported multi-valued fields natively - fields could contain lists of values, and those lists could themselves be multi-valued. JSON's hierarchical structure is the modern equivalent.
+**Hierarchical Data Model**: Business data is often naturally hierarchical - customers have orders, orders have line items, etc. JSON's native support for nested objects and arrays matches this reality, eliminating the need to artificially flatten data into relational tables.
 
 **JSON in ZeaShell**:
 - Preserves nested objects and arrays
@@ -44,7 +44,7 @@ ZeaShell includes full JSON support, inspired by PICK OS's multi-valued database
 }
 ```
 
-## Multi-Valued Fields: PICK-Style
+## Multi-Valued Fields: Hierarchical Structures
 
 ### Example: Nested Structures
 
@@ -85,7 +85,7 @@ The nested structures are preserved! You can process them through pipelines and 
 | Nested Data | ✅ Fully preserved | ✅ Fully preserved |
 | File Size | Larger (formatting) | Smaller (no formatting) |
 | Use Case | APIs, config files, rich data | Logs, streaming, large datasets |
-| PICK-like | ✅ Yes - hierarchical | Partial |
+| Hierarchical | ✅ Yes - nested structures | Partial |
 
 ## Usage Examples
 
@@ -253,16 +253,16 @@ zea load large_data.json | zea store compressed.parquet
 zea load data.parquet | zea store readable.json
 ```
 
-## PICK OS Comparison
+## Hierarchical Data Mapping
 
-| PICK Concept | ZeaShell JSON Equivalent |
-|--------------|--------------------------|
+| Hierarchical Concept | ZeaShell JSON Equivalent |
+|---------------------|--------------------------|
 | Multi-valued field | JSON array: `"tags": ["a", "b"]` |
-| Sub-valued field | Nested array: `"data": [[1,2],[3,4]]` |
-| Dictionary | JSON object: `{"key": "value"}` |
-| Association | Nested object: `{"user": {"name": "Alice"}}` |
-| Item | JSON object in array |
-| File | JSON array of objects |
+| Nested list | Nested array: `"data": [[1,2],[3,4]]` |
+| Key-value pairs | JSON object: `{"key": "value"}` |
+| Related entity | Nested object: `{"user": {"name": "Alice"}}` |
+| Record | JSON object in array |
+| Collection | JSON array of objects |
 
 ## Best Practices
 
@@ -321,7 +321,7 @@ data.parquet →  0.3 MB  (compressed)
 
 ## Advanced Examples
 
-### Multi-Valued PICK-Style Data
+### Hierarchical Multi-Valued Data
 
 ```json
 [
@@ -507,9 +507,9 @@ All standard comparison operators work with nested fields:
    zea load data.json | zea filter "address.state = 'CA' AND orders CONTAINS 1005"
    ```
 
-5. **✅ DO**: Use JSON for PICK-style multi-valued data processing
+5. **✅ DO**: Use JSON for hierarchical multi-valued data processing
    ```bash
-   # True PICK-style: query into multi-valued fields
+   # Query into nested arrays and objects naturally
    zea load api.json | zea filter "tags CONTAINS 'premium'" | zea store vip.json
    ```
 
@@ -522,17 +522,27 @@ All standard comparison operators work with nested fields:
 
 ### When to Use Each Format
 
-- **JSON with nested queries**: PICK-style multi-valued data processing
+- **JSON with nested queries**: Hierarchical multi-valued data processing
 - **Flat CSV/TSV**: Simple tabular data without nesting
 - **JSONL**: Streaming large JSON datasets with nested structures
 - **Parquet**: Best query performance on flat data
 
 ## See Also
 
+- [NESTED_QUERIES.md](NESTED_QUERIES.md) - Nested field queries and multi-valued support
 - [FORMAT_CONVERSION.md](FORMAT_CONVERSION.md) - All format conversions
-- [PARQUET.md](PARQUET.md) - Parquet documentation
-- [README.md](README.md) - Main documentation
+- [PARQUET.md](../PARQUET.md) - Parquet documentation
+- [README.md](../README.md) - Main documentation
+
+## References
+
+### Historical Context
+
+The approach of storing related data together in hierarchical structures has proven advantages for business applications. Rather than forcing everything into flat relational tables, nested formats like JSON allow data to match business reality: customers have orders, orders have line items, etc.
+
+For more on how hierarchical database concepts inform ZeaShell's design, see:
+- [PICK Reimagined](PICK_REIMAGINED.md) - Multi-valued data for the modern age
 
 ---
 
-**ZeaShell JSON: Modern multi-valued data, inspired by PICK OS** 🗄️
+**ZeaShell JSON: Native hierarchical multi-valued data processing** 🗄️
