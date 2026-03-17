@@ -7,6 +7,7 @@ ZeaShell is a production-ready Go CLI for data processing with an embedded **Zea
 ## Features
 
 - **Pipeable Commands**: Full Unix pipe compatibility for data workflows
+- **Interactive TUI**: Terminal-based data viewer with sort, filter, graph, and export
 - **ZeaFrame Engine**: Embedded columnar DataFrame library
 - **Multi-Format**: CSV, TSV, JSON, JSONL, XML and **Apache Parquet** support
 - **Partitioned Data**: Glob patterns, directory loading, parallel multi-file operations
@@ -434,6 +435,60 @@ Show schema and preview of the data.
 zea load sales.csv | zea describe
 zea load data.csv | zea filter "amount > 100" | zea describe
 ```
+
+### `zea view [source]`
+
+Interactive terminal UI for data exploration with keyboard-driven operations.
+
+**Features:**
+- Scrollable table view with syntax highlighting
+- Sort by column (ascending/descending)
+- Filter with expressions
+- Graph/chart view (histograms for numeric, bar charts for categorical)
+- Export filtered/sorted view to CSV
+- Full keyboard navigation
+
+**Keyboard Shortcuts:**
+
+Navigation:
+- `↑↓←→` - Move cursor
+- `PgUp/PgDn` - Page up/down
+- `Home/End` - First/last row
+
+Operations:
+- `s` - Sort by current column (cycle: none → asc → desc)
+- `f` - Filter with expression dialog
+- `g` - Show graph/chart for column
+- `e` - Export current view to file
+- `r` - Reset filters and sorts
+- `?` - Show help overlay
+- `q` - Quit
+
+**Examples:**
+
+```bash
+# View single file
+zea view sales.csv
+
+# View partitioned data
+zea view "sales/**/*.parquet"
+
+# View from URL
+zea view "https://example.com/data.csv"
+
+# View pipeline output
+zea load sales.csv | zea filter "amount > 100" | zea view -
+
+# View with glob pattern
+zea view "testdata/sales-partitioned/date=*/*.csv"
+```
+
+**Use cases:**
+- Quick data exploration without writing code
+- Verify filter/sort operations interactively
+- Generate graphs for numeric distributions
+- Export subsets after interactive filtering
+- Explore partitioned data lakes
 
 ## Format Conversion
 

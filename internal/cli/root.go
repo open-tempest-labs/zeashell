@@ -29,4 +29,5 @@ func init() {
 	rootCmd.AddCommand(joinCmd)
 	rootCmd.AddCommand(pivotCmd)
 	rootCmd.AddCommand(unpivotCmd)
+	rootCmd.AddCommand(viewCmd)
 }
