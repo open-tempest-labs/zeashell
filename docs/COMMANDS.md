@@ -17,6 +17,7 @@ Complete reference for all ZeaShell commands.
 | `zea view` | Interactive terminal UI viewer |
 | `zea describe` | Show schema and preview |
 | `zea store` | Write data to file |
+| `zea run` | Run custom plugin commands |
 
 ---
 
@@ -416,6 +417,85 @@ zea load sales.csv | zea filter "amount > 1000" | zea store high_value.parquet
 # Store to stdout (default format: CSV)
 zea load sales.csv | zea filter "amount > 100" | zea store
 ```
+
+---
+
+## `zea run <plugin> [args...]`
+
+Run custom plugin commands from `~/.zea/plugins/` or `$ZEA_PLUGINS`.
+
+Plugins are executable scripts that extend ZeaShell with custom commands. They integrate seamlessly with ZeaShell's pipeline architecture.
+
+### Usage
+
+```bash
+# Run a plugin
+zea run <plugin-name> [arguments...]
+
+# List available plugins
+zea run --help
+
+# Get help for a specific plugin
+zea run <plugin-name> --help  # Passed to the plugin script
+```
+
+### Plugin Discovery
+
+Plugins are loaded from:
+1. **`$ZEA_PLUGINS`** environment variable (if set)
+2. **`~/.zea/plugins/`** (default location)
+
+Only executable files are registered as plugins. Non-executable files are silently skipped.
+
+### Examples
+
+```bash
+# Run a data generator plugin
+zea run inventory | zea load --format csv | zea view
+
+# Run a pipeline wrapper plugin
+zea run sales-pipeline sales.csv 1000
+
+# Use plugin in a pipeline
+zea run high-value-customers sales.csv | zea store vip.csv
+```
+
+### Creating Plugins
+
+Plugins are simple executable scripts with optional metadata directives:
+
+```bash
+#!/bin/bash
+# @name my-plugin        # Override command name (defaults to filename)
+# @desc Short description
+# @args [file] [options]
+
+# Plugin implementation
+zea load "$1" | zea filter "amount > 1000"
+```
+
+**Metadata directives:**
+- `@name` - Command name (defaults to filename)
+- `@desc` - Short description shown in help
+- `@args` - Usage hint for arguments
+
+**Requirements:**
+- Must be executable (`chmod +x`)
+- Must have shebang line (`#!/bin/bash`, `#!/usr/bin/env python3`, etc.)
+- Works with any language (Bash, Python, Ruby, compiled binaries, etc.)
+
+### Debug Mode
+
+Enable debug output to see plugin discovery:
+
+```bash
+ZEA_DEBUG=1 zea run --help
+```
+
+### See Also
+
+- **[Plugin System Documentation](PLUGINS.md)** - Complete plugin guide with examples
+- **[Plugin Examples](../examples/plugins/)** - Ready-to-use example plugins
 
 ---
 

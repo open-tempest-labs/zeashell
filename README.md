@@ -13,6 +13,7 @@ ZeaShell is a production-ready Go CLI for data processing with an embedded **Zea
 - 🌐 **HTTP/HTTPS** - Load data directly from URLs
 - 🔗 **Relational Joins** - Inner, left, right, and full outer joins
 - ↔️ **Pivot/Unpivot** - Transform between long and wide formats
+- 🔌 **Plugin System** - Extend with custom commands using simple executable scripts
 - ⚡ **Fast** - Single static binary, columnar storage, parallel loading
 - 🎯 **Expressive** - SQL-like filter expressions and aggregations
 - 🏗️ **Production Ready** - Type inference, error handling, streaming I/O, schema evolution
@@ -81,6 +82,7 @@ zea load "sales/date=2026-03-*/*.parquet" \
 | `zea unpivot` | Transform wide to long format | [Commands](docs/COMMANDS.md#zea-unpivot) |
 | `zea describe` | Show schema and preview | [Commands](docs/COMMANDS.md#zea-describe) |
 | `zea store` | Write data to file | [Commands](docs/COMMANDS.md#zea-store) |
+| `zea run` | Run custom plugin commands | [Plugins](docs/PLUGINS.md) |
 
 ## Key Features
 
@@ -194,6 +196,39 @@ zea load data.json | zea filter "address.city = 'SF'"
 - Unified model across JSON and XML
 - Path semantics preserved
 
+### Plugin System
+
+Extend ZeaShell with custom commands using simple executable scripts:
+
+```bash
+# Create a plugin directory
+mkdir -p ~/.zea/plugins
+
+# Create an executable plugin script
+cat > ~/.zea/plugins/sales << 'EOF'
+#!/bin/bash
+# @desc Process sales CSV files with standard transforms
+
+zea load "$1" | zea filter "amount > 1000" | zea view
+EOF
+
+chmod +x ~/.zea/plugins/sales
+
+# Run your plugin
+zea run sales data.csv
+```
+
+**Features:**
+- Drop executable scripts into `~/.zea/plugins/`
+- Automatic command registration as `zea run <plugin>`
+- Full stdin/stdout/stderr passthrough
+- Metadata directives for help text (`@desc`, `@name`, `@args`)
+- Works with any scripting language (Bash, Python, Ruby, etc.)
+- Seamless pipeline integration
+- Auto-completion support
+
+[📖 Plugin System Documentation](docs/PLUGINS.md)
+
 ## Example Workflows
 
 ### Data Exploration
@@ -254,6 +289,7 @@ zea load "/mnt/datalake/events/year=2026/month=03/**/*.parquet" \
 - [Expression Language](docs/EXPRESSIONS.md) - Filter syntax and operators
 - [Interactive Viewer](docs/VIEWER.md) - TUI viewer guide
 - [Partitioned Data](docs/PARTITIONED_DATA.md) - Glob patterns and multi-file loading
+- [Plugin System](docs/PLUGINS.md) - Extend ZeaShell with custom commands
 
 ### Format Support
 - [Parquet Support](PARQUET.md) - Apache Parquet documentation

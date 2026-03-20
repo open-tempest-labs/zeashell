@@ -382,6 +382,8 @@ Thanks to all contributors for this release!
 
 | Version | Release Date | Highlights |
 |---------|-------------|------------|
+| v0.3.0  | 2026-03-20  | Plugin system for extensibility, viewer enhancements for truncated cells |
+| v0.2.0  | 2026-03-18  | Interactive TUI viewer with charting, globbing patterns for multi-file loading |
 | v0.1.0  | 2026-03-16  | Initial release with multi-format support, HTTP/HTTPS loading, path-based columns |
 
 ## Additional Resources

@@ -136,6 +136,13 @@ func (v *Viewer) handleInput(event *tcell.EventKey) *tcell.EventKey {
 		return nil
 	}
 
+	// Handle special keys
+	switch event.Key() {
+	case tcell.KeyEnter:
+		v.showFullCellValue()
+		return nil
+	}
+
 	return event
 }
 
@@ -158,6 +165,53 @@ func (v *Viewer) updateStatus() {
 	status += " | Press ? for help"
 
 	v.status.SetText(status)
+}
+
+// showFullCellValue displays the complete value of the selected cell in a modal
+func (v *Viewer) showFullCellValue() {
+	row, col := v.table.GetSelection()
+	if row < 1 || col < 0 {
+		// Row 0 is header, ignore
+		return
+	}
+
+	// Get actual data row (subtract 1 for header)
+	dataRow := row - 1
+	if dataRow >= v.currentFrame.Rows || col >= len(v.currentFrame.Columns) {
+		return
+	}
+
+	column := v.currentFrame.Columns[col]
+
+	// Get the full value
+	var fullValue string
+	if column.Nulls[dataRow] {
+		fullValue = "NULL"
+	} else {
+		fullValue = fmt.Sprintf("%v", column.Data[dataRow])
+	}
+
+	// Create a text view to display the value
+	textView := tview.NewTextView().
+		SetText(fullValue).
+		SetDynamicColors(true).
+		SetWordWrap(true).
+		SetScrollable(true)
+
+	textView.SetBorder(true).
+		SetTitle(fmt.Sprintf(" %s [Row %d] - Press ESC or q to close ", column.Name, dataRow+1))
+
+	// Handle input for the modal
+	textView.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyEsc || event.Rune() == 'q' {
+			v.pages.RemovePage("cell-view")
+			return nil
+		}
+		return event
+	})
+
+	// Show the modal
+	v.pages.AddPage("cell-view", textView, true, true)
 }
 
 // Run starts the TUI application

@@ -1,0 +1,20 @@
+#!/bin/bash
+# @desc Quick CSV file preview with schema and sample data
+# @args [file]
+
+if [ -z "$1" ]; then
+    echo "Usage: zea run csv-preview <file.csv>"
+    echo "Show schema and preview of a CSV file"
+    exit 1
+fi
+
+if [ ! -f "$1" ]; then
+    echo "Error: File not found: $1" >&2
+    exit 1
+fi
+
+echo "File: $1"
+echo "Size: $(du -h "$1" | cut -f1)"
+echo ""
+
+zea load "$1" | zea describe

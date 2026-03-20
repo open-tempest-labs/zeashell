@@ -1,0 +1,12 @@
+#!/bin/bash
+# @name inventory
+# @desc Generate sample inventory data
+
+cat << DATA
+item,quantity,price
+Widget A,150,29.99
+Widget B,200,39.99
+Widget C,75,49.99
+Gadget X,300,19.99
+Gadget Y,125,24.99
+DATA

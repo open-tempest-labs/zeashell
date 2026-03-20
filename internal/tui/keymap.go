@@ -21,6 +21,7 @@ var KeyMap = []KeyBinding{
 	{tcell.KeyPgDn, 0, "Page down"},
 	{tcell.KeyHome, 0, "Go to first row"},
 	{tcell.KeyEnd, 0, "Go to last row"},
+	{tcell.KeyEnter, 0, "View full cell value"},
 	{0, 's', "Sort by column (cycle: none → asc → desc)"},
 	{0, 'f', "Filter rows with expression"},
 	{0, 'g', "Show graph/chart for column"},
@@ -37,7 +38,8 @@ func GetHelpText() string {
 	help += "Navigation:\n"
 	help += "  ↑↓←→      Move cursor\n"
 	help += "  PgUp/PgDn Page up/down\n"
-	help += "  Home/End  First/last row\n\n"
+	help += "  Home/End  First/last row\n"
+	help += "  Enter     View full cell value\n\n"
 	help += "Operations:\n"
 	help += "  s         Sort by current column\n"
 	help += "  f         Filter with expression\n"

@@ -1,0 +1,33 @@
+#!/bin/bash
+# @name high-value-customers
+# @desc Find customers with total purchases over threshold
+# @args [input-file] [threshold]
+
+if [ -z "$1" ]; then
+    cat << HELP
+Usage: zea run high-value-customers <sales.csv> [threshold]
+
+Find customers whose total purchases exceed the threshold.
+
+Arguments:
+  input-file  Sales CSV file with 'customer' and 'amount' columns
+  threshold   Minimum total amount (default: 5000)
+
+Example:
+  zea run high-value-customers sales.csv 10000
+
+Output columns:
+  customer      - Customer name
+  amount_sum    - Total purchase amount
+  amount_count  - Number of transactions
+HELP
+    exit 1
+fi
+
+THRESHOLD="${2:-5000}"
+
+zea load "$1" \
+  | zea filter "amount > 0 AND status = 'completed'" \
+  | zea group customer --sum=amount --count=1 \
+  | zea filter "amount_sum > $THRESHOLD" \
+  | zea sort amount_sum:desc

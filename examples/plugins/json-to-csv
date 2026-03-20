@@ -1,0 +1,37 @@
+#!/bin/bash
+# @desc Convert JSON/JSONL files to CSV format
+# @args [input.json] [output.csv]
+
+if [ -z "$1" ]; then
+    cat << HELP
+Usage: zea run json-to-csv <input.json> [output.csv]
+
+Convert JSON or JSONL files to CSV format.
+
+Arguments:
+  input.json   - Input JSON or JSONL file
+  output.csv   - Output CSV file (optional, defaults to stdout)
+
+Examples:
+  zea run json-to-csv data.json data.csv
+  zea run json-to-csv data.jsonl | head -10
+HELP
+    exit 1
+fi
+
+INPUT="$1"
+OUTPUT="${2:-}"
+
+if [ ! -f "$INPUT" ]; then
+    echo "Error: File not found: $INPUT" >&2
+    exit 1
+fi
+
+if [ -z "$OUTPUT" ]; then
+    # Output to stdout
+    zea load "$INPUT"
+else
+    # Output to file
+    zea load "$INPUT" | zea store "$OUTPUT"
+    echo "Converted $INPUT -> $OUTPUT"
+fi

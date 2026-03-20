@@ -1,0 +1,32 @@
+#!/bin/bash
+# @name sales-pipeline
+# @desc Process sales CSV files with standard transforms
+# @args [file] [min-amount]
+
+if [ -z "$1" ]; then
+    echo "Usage: zea run sales-pipeline <file.csv> [min-amount]"
+    echo ""
+    echo "Process sales CSV files with amount filtering and aggregation."
+    echo ""
+    echo "Arguments:"
+    echo "  file        Sales CSV file to process"
+    echo "  min-amount  Minimum amount to filter (default: 1000)"
+    echo ""
+    echo "Example:"
+    echo "  zea run sales-pipeline sales.csv 500"
+    exit 1
+fi
+
+FILE="$1"
+MIN_AMOUNT="${2:-1000}"
+
+if [ ! -f "$FILE" ]; then
+    echo "Error: File not found: $FILE" >&2
+    exit 1
+fi
+
+# Process the sales file
+zea load "$FILE" \
+  | zea filter "amount > $MIN_AMOUNT" \
+  | zea group customer --sum=amount --count=1 \
+  | zea sort amount_sum:desc
