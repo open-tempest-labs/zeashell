@@ -1,7 +1,7 @@
 # ZeaShell 
 <img width="1024" height="1024" alt="image" src="https://github.com/user-attachments/assets/fbc700e8-f28f-45aa-8ade-0e9c2cef125b" />
 
-**DataFrame Shell - CSV to petabytes, one pipe at a time**
+**CSV to petabytes, one pipe at a time**
 
 ZeaShell is a production-ready Go CLI for data processing with an embedded **ZeaFrame** DataFrame library. Process CSV, JSON, XML, and Parquet files with Unix pipe semantics - from quick data exploration to petabyte-scale data lake workflows.
 
