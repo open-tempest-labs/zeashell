@@ -14,6 +14,7 @@ Complete reference for all ZeaShell commands.
 | `zea join` | Join two DataFrames |
 | `zea pivot` | Transform long to wide format |
 | `zea unpivot` | Transform wide to long format |
+| `zea sql` | Execute DuckDB SQL queries on stdin data |
 | `zea view` | Interactive terminal UI viewer |
 | `zea describe` | Show schema and preview |
 | `zea store` | Write data to file |
@@ -416,6 +417,144 @@ zea load sales.csv | zea filter "amount > 1000" | zea store high_value.parquet
 
 # Store to stdout (default format: CSV)
 zea load sales.csv | zea filter "amount > 100" | zea store
+```
+
+---
+
+## `zea sql <query>`
+
+Execute SQL queries using DuckDB on data piped from stdin.
+
+The SQL command provides full DuckDB analytics capabilities within ZeaShell pipelines. Data from stdin is automatically registered as a table named `stdin` that you can query.
+
+### Features
+
+- **Full DuckDB SQL** - Complete SQL support including aggregations, joins, CTEs, window functions
+- **Stdin as table** - Input data automatically available as `stdin` table
+- **Hybrid pipelines** - Mix DataFrame operations and SQL in the same pipeline
+- **No persistence** - In-memory processing, no database files created
+- **CSV in/out** - Seamlessly integrates with other zea commands
+
+### Examples
+
+```bash
+# Simple aggregation
+zea load sales.csv | zea sql "SELECT region, SUM(amount) as total FROM stdin GROUP BY region"
+
+# Filter with SQL WHERE clause
+zea load sales.csv | zea sql "SELECT * FROM stdin WHERE amount > 1000"
+
+# Window functions for ranking
+zea load sales.csv | zea sql "SELECT *, ROW_NUMBER() OVER (PARTITION BY region ORDER BY amount DESC) as rank FROM stdin"
+
+# Complex aggregation with HAVING
+zea load sales.csv | zea sql "SELECT customer, COUNT(*) as count, SUM(amount) as total FROM stdin GROUP BY customer HAVING total > 5000"
+
+# Self-join on stdin table
+zea load sales.csv | zea sql "SELECT s1.customer, s1.amount FROM stdin s1 JOIN stdin s2 ON s1.region = s2.region WHERE s2.amount > 1000"
+
+# Subqueries
+zea load sales.csv | zea sql "SELECT * FROM stdin WHERE amount > (SELECT AVG(amount) FROM stdin)"
+
+# Common Table Expressions (CTEs)
+zea load sales.csv | zea sql "WITH high_value AS (SELECT * FROM stdin WHERE amount > 1000) SELECT region, COUNT(*) FROM high_value GROUP BY region"
+```
+
+### Pipeline Integration
+
+Combine SQL with other zea commands:
+
+```bash
+# Filter with zea, then SQL aggregation
+zea load sales.csv | zea filter "status = 'completed'" | zea sql "SELECT region, SUM(amount) FROM stdin GROUP BY region"
+
+# SQL transformation, then zea view
+zea load sales.csv | zea sql "SELECT customer, SUM(amount) as total FROM stdin GROUP BY customer ORDER BY total DESC" | zea view
+
+# SQL, then continue with DataFrame operations
+zea load sales.csv | zea sql "SELECT * FROM stdin WHERE amount > 1000" | zea select customer,amount,region | zea store high_value.csv
+```
+
+### Queries Without Stdin
+
+You can run SQL queries without input data:
+
+```bash
+# Generate test data
+zea sql "SELECT 1 as x, 2 as y, 3 as z" | zea view
+
+# Use DuckDB functions
+zea sql "SELECT CURRENT_DATE as today, RANDOM() as rand_value"
+```
+
+### Advanced SQL Features
+
+DuckDB supports advanced analytics:
+
+```bash
+# Percentiles and statistics
+zea load sales.csv | zea sql "SELECT region, PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY amount) as median_amount FROM stdin GROUP BY region"
+
+# String operations
+zea load customers.csv | zea sql "SELECT UPPER(name) as name, CONCAT(city, ', ', state) as location FROM stdin"
+
+# Date functions
+zea load events.csv | zea sql "SELECT DATE_TRUNC('month', event_date) as month, COUNT(*) FROM stdin GROUP BY month"
+
+# Array aggregation
+zea load sales.csv | zea sql "SELECT customer, LIST(region) as regions, SUM(amount) FROM stdin GROUP BY customer"
+```
+
+### Execution Modes
+
+The SQL command supports multiple execution paths:
+
+```bash
+# Auto mode (default) - currently uses file-based path
+zea load sales.csv | zea sql "SELECT * FROM stdin"
+
+# File mode (explicit) - reliable, debuggable
+zea load sales.csv | zea sql --file "SELECT * FROM stdin"
+
+# Arrow mode (future) - for Arrow IPC input
+# Currently requires Arrow IPC stdin format
+zea load sales.parquet | zea sql --arrow "SELECT * FROM stdin"
+```
+
+**Performance Hierarchy:**
+1. **Arrow-native** (`--arrow`) - Zero-copy, fastest (requires Arrow IPC stdin)
+2. **File-based** (`--file`) - Temp files, reliable, current default
+3. **CSV fallback** - Universal compatibility
+
+**Current State (✅ Arrow Support Available):**
+- ZeaShell commands output CSV by default
+- Commands support `--output=arrow` for Arrow IPC format
+- Arrow pipeline: `zea load --output=arrow | zea sql --arrow`
+- File mode (`--file`) remains the reliable default
+- Arrow mode (`--arrow`) provides 2-10x performance improvement
+
+### Performance Notes
+
+- DuckDB uses columnar processing for fast analytics
+- In-memory execution for queries
+- Temporary files created for stdin data (cleaned up automatically)
+- Ideal for analytical queries on medium to large datasets
+- File mode: ~100MB/s throughput
+- Arrow mode (future): ~1GB/s+ throughput
+
+### Future Extensions
+
+The SQL command provides a foundation for future enhancements:
+
+```bash
+# TODO: MotherDuck cloud database support
+# zea sql -c "md:my_database" "SELECT * FROM my_table"
+
+# TODO: Interactive SQL REPL
+# zea sql -i
+
+# TODO: dbt integration
+# zea dbt-sync
 ```
 
 ---

@@ -25,6 +25,7 @@ var KeyMap = []KeyBinding{
 	{0, 's', "Sort by column (cycle: none → asc → desc)"},
 	{0, 'f', "Filter rows with expression"},
 	{0, 'g', "Show graph/chart for column"},
+	{0, 'd', "Show schema and metadata"},
 	{0, 'e', "Export current view to file"},
 	{0, 'r', "Reset (clear filters and sorts)"},
 	{0, '?', "Show help"},
@@ -44,6 +45,7 @@ func GetHelpText() string {
 	help += "  s         Sort by current column\n"
 	help += "  f         Filter with expression\n"
 	help += "  g         Show graph for column\n"
+	help += "  d         Show schema and metadata\n"
 	help += "  e         Export to file\n"
 	help += "  r         Reset filters/sorts\n\n"
 	help += "Other:\n"

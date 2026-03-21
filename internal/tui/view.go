@@ -89,6 +89,11 @@ func (v *Viewer) setupUI() {
 	v.table = NewTableView(v.currentFrame)
 	v.table.SetBorder(true).SetTitle(" ZeaView ")
 
+	// Update status bar when selection changes
+	v.table.SetSelectionChangedFunc(func(row, col int) {
+		v.updateStatus()
+	})
+
 	// Create status bar
 	v.status = tview.NewTextView().
 		SetDynamicColors(true).
@@ -125,6 +130,9 @@ func (v *Viewer) handleInput(event *tcell.EventKey) *tcell.EventKey {
 	case 'e':
 		v.showExportDialog()
 		return nil
+	case 'd':
+		v.showSchema()
+		return nil
 	case 'r':
 		v.handleReset()
 		return nil
@@ -148,7 +156,19 @@ func (v *Viewer) handleInput(event *tcell.EventKey) *tcell.EventKey {
 
 // updateStatus updates the status bar
 func (v *Viewer) updateStatus() {
-	status := fmt.Sprintf(" Rows: %d | Cols: %d", v.currentFrame.Rows, len(v.currentFrame.Columns))
+	// Get current cursor position
+	row, col := v.table.GetSelection()
+
+	// Row 0 is header, so data rows start at 1
+	currentRow := row
+	if currentRow > 0 {
+		currentRow-- // Convert to 0-based data row index
+	}
+
+	// Build status with current position
+	status := fmt.Sprintf(" Row: %d/%d | Col: %d/%d",
+		currentRow+1, v.currentFrame.Rows,
+		col+1, len(v.currentFrame.Columns))
 
 	if v.sortColumn != "" {
 		dir := "asc"
@@ -212,6 +232,95 @@ func (v *Viewer) showFullCellValue() {
 
 	// Show the modal
 	v.pages.AddPage("cell-view", textView, true, true)
+}
+
+// showSchema displays the schema and metadata for the current data
+func (v *Viewer) showSchema() {
+	var content string
+
+	// Build schema information
+	content += "Schema:\n"
+	content += "-------\n"
+	for _, col := range v.currentFrame.Columns {
+		typeName := getTypeName(col.Type)
+
+		// Count nulls in this column
+		nullCount := 0
+		for i := 0; i < v.currentFrame.Rows; i++ {
+			if col.Nulls[i] {
+				nullCount++
+			}
+		}
+
+		nullPercent := 0.0
+		if v.currentFrame.Rows > 0 {
+			nullPercent = float64(nullCount) / float64(v.currentFrame.Rows) * 100.0
+		}
+
+		content += fmt.Sprintf("  %-25s %-10s", col.Name, typeName)
+		if nullCount > 0 {
+			content += fmt.Sprintf(" (%d nulls, %.1f%%)", nullCount, nullPercent)
+		}
+		content += "\n"
+	}
+
+	content += "\n"
+	content += fmt.Sprintf("Total Rows: %d\n", v.currentFrame.Rows)
+	content += fmt.Sprintf("Total Columns: %d\n", len(v.currentFrame.Columns))
+
+	// Add filter/sort info if applicable
+	if v.filterExpr != "" {
+		content += fmt.Sprintf("\nActive Filter: %s\n", v.filterExpr)
+		content += fmt.Sprintf("Original Rows: %d\n", v.originalFrame.Rows)
+	}
+
+	if v.sortColumn != "" {
+		dir := "ascending"
+		if !v.sortAsc {
+			dir = "descending"
+		}
+		content += fmt.Sprintf("\nActive Sort: %s (%s)\n", v.sortColumn, dir)
+	}
+
+	// Create a text view to display the schema
+	textView := tview.NewTextView().
+		SetText(content).
+		SetDynamicColors(true).
+		SetWordWrap(false).
+		SetScrollable(true)
+
+	textView.SetBorder(true).
+		SetTitle(" Schema & Metadata - Press ESC or d to close ")
+
+	// Handle input for the modal
+	textView.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyEsc || event.Rune() == 'd' || event.Rune() == 'q' {
+			v.pages.RemovePage("schema-view")
+			return nil
+		}
+		return event
+	})
+
+	// Show the modal
+	v.pages.AddPage("schema-view", textView, true, true)
+}
+
+// getTypeName returns a human-readable type name
+func getTypeName(colType zeaframe.ColumnType) string {
+	switch colType {
+	case zeaframe.StringType:
+		return "string"
+	case zeaframe.Int64Type:
+		return "int64"
+	case zeaframe.Float64Type:
+		return "float64"
+	case zeaframe.BoolType:
+		return "bool"
+	case zeaframe.MultiType:
+		return "multi"
+	default:
+		return "unknown"
+	}
 }
 
 // Run starts the TUI application

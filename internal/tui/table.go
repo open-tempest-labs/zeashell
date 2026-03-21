@@ -50,13 +50,8 @@ func (tv *TableView) populate() {
 		tv.SetCell(0, col, cell)
 	}
 
-	// Add data rows (limit to first 1000 for performance)
-	maxRows := tv.frame.Rows
-	if maxRows > 1000 {
-		maxRows = 1000
-	}
-
-	for row := 0; row < maxRows; row++ {
+	// Add all data rows (tview handles scrolling automatically)
+	for row := 0; row < tv.frame.Rows; row++ {
 		for col := 0; col < len(tv.frame.Columns); col++ {
 			value := tv.formatValue(col, row)
 
@@ -70,17 +65,6 @@ func (tv *TableView) populate() {
 
 			tv.SetCell(row+1, col, cell)
 		}
-	}
-
-	// Add a notice if we truncated
-	if tv.frame.Rows > 1000 {
-		noticeRow := maxRows + 1
-		cell := tview.NewTableCell(fmt.Sprintf("... and %d more rows (showing first 1000)", tv.frame.Rows-1000)).
-			SetTextColor(tcell.ColorGray).
-			SetAlign(tview.AlignCenter).
-			SetExpansion(1)
-		tv.SetCell(noticeRow, 0, cell)
-		tv.SetCell(noticeRow, 1, tview.NewTableCell(""))
 	}
 }
 

@@ -8,6 +8,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var filterOutput string
+
 var filterCmd = &cobra.Command{
 	Use:   "filter [expression]",
 	Short: "Filter rows based on an expression",
@@ -44,6 +46,10 @@ Examples of expressions:
 	RunE: runFilter,
 }
 
+func init() {
+	filterCmd.Flags().StringVar(&filterOutput, "output", "csv", "Output format: csv, arrow (Arrow IPC)")
+}
+
 func runFilter(cmd *cobra.Command, args []string) error {
 	// Read from stdin
 	zf, err := zeaframe.FromCSV(os.Stdin)
@@ -64,6 +70,13 @@ func runFilter(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to filter: %w", err)
 	}
 
-	// Write to stdout
-	return result.WriteCSV(os.Stdout)
+	// Write to stdout in specified format
+	switch filterOutput {
+	case "arrow":
+		return result.WriteArrowIPC(os.Stdout)
+	case "csv":
+		return result.WriteCSV(os.Stdout)
+	default:
+		return fmt.Errorf("unsupported output format: %s (use 'csv' or 'arrow')", filterOutput)
+	}
 }

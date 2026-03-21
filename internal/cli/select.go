@@ -9,6 +9,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var selectOutput string
+
 var selectCmd = &cobra.Command{
 	Use:   "select [columns]",
 	Short: "Select specific columns from the input",
@@ -19,6 +21,10 @@ Columns should be specified as a comma-separated list.`,
   zea load data.csv | zea select customer,total,date`,
 	Args: cobra.ExactArgs(1),
 	RunE: runSelect,
+}
+
+func init() {
+	selectCmd.Flags().StringVar(&selectOutput, "output", "csv", "Output format: csv, arrow (Arrow IPC)")
 }
 
 func runSelect(cmd *cobra.Command, args []string) error {
@@ -41,6 +47,13 @@ func runSelect(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to select columns: %w", err)
 	}
 
-	// Write to stdout
-	return result.WriteCSV(os.Stdout)
+	// Write to stdout in specified format
+	switch selectOutput {
+	case "arrow":
+		return result.WriteArrowIPC(os.Stdout)
+	case "csv":
+		return result.WriteCSV(os.Stdout)
+	default:
+		return fmt.Errorf("unsupported output format: %s (use 'csv' or 'arrow')", selectOutput)
+	}
 }
