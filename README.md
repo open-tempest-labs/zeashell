@@ -14,6 +14,7 @@ ZeaShell is a production-ready Go CLI for data processing with an embedded **Zea
 - 🌐 **HTTP/HTTPS** - Load data directly from URLs
 - 🔗 **Relational Joins** - Inner, left, right, and full outer joins
 - ↔️ **Pivot/Unpivot** - Transform between long and wide formats
+- 🦆 **DuckDB SQL** - Run SQL queries in pipelines with full DuckDB analytics
 - 🔌 **Plugin System** - Extend with custom commands using simple executable scripts
 - ⚡ **Fast** - Single static binary, columnar storage, parallel loading
 - 🎯 **Expressive** - SQL-like filter expressions and aggregations
@@ -81,6 +82,7 @@ zea load "sales/date=2026-03-*/*.parquet" \
 | `zea join` | Join two DataFrames | [Commands](docs/COMMANDS.md#zea-join) |
 | `zea pivot` | Transform long to wide format | [Commands](docs/COMMANDS.md#zea-pivot) |
 | `zea unpivot` | Transform wide to long format | [Commands](docs/COMMANDS.md#zea-unpivot) |
+| `zea sql` | Execute DuckDB SQL queries | [Commands](docs/COMMANDS.md#zea-sql) |
 | `zea describe` | Show schema and preview | [Commands](docs/COMMANDS.md#zea-describe) |
 | `zea store` | Write data to file | [Commands](docs/COMMANDS.md#zea-store) |
 | `zea run` | Run custom plugin commands | [Plugins](docs/PLUGINS.md) |
@@ -95,11 +97,13 @@ Launch an interactive terminal UI to explore data visually:
 zea view sales.csv
 ```
 
-- **Navigate**: Arrow keys, PgUp/PgDn
+- **Navigate**: Arrow keys, PgUp/PgDn - scroll through unlimited rows
 - **Sort**: Press `s` on any column
 - **Filter**: Press `f` to apply expressions
 - **Graph**: Press `g` for charts (histograms, bar charts)
+- **Schema**: Press `d` to view column types and metadata
 - **Export**: Press `e` to save filtered data
+- **Status Bar**: Shows current position (Row: 1,247/5,000 | Col: 3/4)
 - **Help**: Press `?` for all shortcuts
 
 [📖 Full Viewer Documentation](docs/VIEWER.md)
@@ -196,6 +200,52 @@ zea load data.json | zea filter "address.city = 'SF'"
 - Natural filtering with dotted paths
 - Unified model across JSON and XML
 - Path semantics preserved
+
+### DuckDB SQL Integration
+
+Run SQL queries in your pipelines using DuckDB's powerful analytics engine:
+
+```bash
+# Simple aggregation with SQL
+zea load sales.csv | zea sql "SELECT region, SUM(amount) as total FROM stdin GROUP BY region"
+
+# Complex analytics with window functions
+zea load sales.csv | zea sql "SELECT *, ROW_NUMBER() OVER (PARTITION BY region ORDER BY amount DESC) as rank FROM stdin"
+
+# Combine DataFrame operations with SQL
+zea load sales.csv | zea filter "amount > 500" | zea sql "SELECT customer, COUNT(*) as transactions, SUM(amount) as total FROM stdin GROUP BY customer"
+
+# Use SQL for transformations, then continue with zea commands
+zea load sales.csv | zea sql "SELECT * FROM stdin WHERE amount > 1000" | zea view
+```
+
+**Features:**
+- Full DuckDB SQL support (aggregations, joins, window functions, CTEs)
+- Stdin data automatically available as `stdin` table
+- Results output as CSV (pipeable to other zea commands)
+- No data persistence (in-memory processing)
+- Hybrid workflows: mix DataFrame ops and SQL in same pipeline
+
+**Execution Modes:**
+- `--file` (default) - File-based execution (CSV temp files, reliable)
+- `--arrow` - Arrow-native execution (🚀 **Now Available!** - zero-copy, fastest)
+- Auto-detection - Automatically selects best mode
+
+**Arrow IPC Support:**
+```bash
+# Enable Arrow pipeline for maximum performance
+zea load --output=arrow sales.csv | zea sql --arrow "SELECT region, SUM(amount) FROM stdin GROUP BY region"
+
+# All data processing commands support --output=arrow
+zea load --output=arrow data.csv
+zea filter --output=arrow "amount > 100"
+zea select --output=arrow customer,amount
+```
+
+**Performance Tiers:**
+1. **Arrow-native** (✅ **Available Now**) - Zero-copy, in-memory, ~2-10x faster
+2. **File-based** (default) - Temp files, reliable, debuggable
+3. **Universal** - CSV fallback for all formats
 
 ### Plugin System
 

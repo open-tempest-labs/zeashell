@@ -9,6 +9,10 @@ import (
 	"io"
 	"strconv"
 	"strings"
+
+	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/ipc"
+	"github.com/apache/arrow/go/v18/arrow/memory"
 )
 
 // FromCSV creates a ZeaFrame from a CSV reader
@@ -185,6 +189,39 @@ func (zf *ZeaFrame) writeDelimited(writer io.Writer, delimiter rune) error {
 
 	csvWriter.Flush()
 	return csvWriter.Error()
+}
+
+// WriteArrowIPC writes the ZeaFrame as Arrow IPC format
+func (zf *ZeaFrame) WriteArrowIPC(writer io.Writer) error {
+	// Convert ZeaFrame to Arrow table
+	table, err := zf.toArrowTable()
+	if err != nil {
+		return fmt.Errorf("failed to convert to Arrow table: %w", err)
+	}
+	defer table.Release()
+
+	// Create Arrow IPC writer
+	mem := memory.NewGoAllocator()
+	ipcWriter := ipc.NewWriter(writer, ipc.WithSchema(table.Schema()), ipc.WithAllocator(mem))
+	defer ipcWriter.Close()
+
+	// Create table reader to iterate through records
+	tableReader := array.NewTableReader(table, table.NumRows())
+	defer tableReader.Release()
+
+	// Write all records
+	for tableReader.Next() {
+		rec := tableReader.Record()
+		if err := ipcWriter.Write(rec); err != nil {
+			return fmt.Errorf("failed to write Arrow record: %w", err)
+		}
+	}
+
+	if err := tableReader.Err(); err != nil {
+		return fmt.Errorf("error reading table: %w", err)
+	}
+
+	return nil
 }
 
 // WriteJSONL writes the ZeaFrame to a JSONL writer

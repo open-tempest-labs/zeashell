@@ -45,6 +45,7 @@ zea load sales.csv | zea filter "amount > 100" | zea view -
 | `s` | Sort by current column (cycle: none → asc → desc → none) |
 | `f` | Open filter expression dialog |
 | `g` | Show graph/chart for current column |
+| `d` | Show schema and metadata |
 | `e` | Export current view to CSV file |
 | `r` | Reset all filters and sorts |
 | `?` | Show help overlay |
@@ -150,6 +151,48 @@ Example:
 
 Press `g` or `Esc` to close the graph and return to table view.
 
+## Schema
+
+Press `d` to display the schema and metadata for the current dataset.
+
+### Schema Display
+
+Shows comprehensive information about your data:
+- **Column names and types**: Each column with its inferred type (string, int64, float64, bool, multi)
+- **Null statistics**: Count and percentage of null values per column
+- **Total rows and columns**: Dataset dimensions
+- **Active filters**: Currently applied filter expressions
+- **Active sorts**: Current sort column and direction
+
+Example:
+```
+┌─ Schema & Metadata ────────────────────────────────────┐
+│ Schema:                                                 │
+│ -------                                                 │
+│   id                      int64                         │
+│   customer                string                        │
+│   amount                  float64                       │
+│   region                  string      (2 nulls, 16.7%)  │
+│   date                    string                        │
+│                                                         │
+│ Total Rows: 12                                          │
+│ Total Columns: 5                                        │
+│                                                         │
+│ Active Filter: amount > 1000                            │
+│ Original Rows: 50                                       │
+│                                                         │
+│ Press ESC or d to close                                 │
+└─────────────────────────────────────────────────────────┘
+```
+
+This is particularly useful for:
+- Understanding data types before filtering
+- Checking data quality (null counts)
+- Verifying filter impact (original vs filtered row counts)
+- Quick schema reference without leaving the viewer
+
+Press `d` or `Esc` to close the schema view and return to the table.
+
 ## Export
 
 Press `e` to export the current view (with any filters/sorts applied) to a CSV file.
@@ -180,15 +223,17 @@ Press any key to close the help and return to the table view.
 ## Status Bar
 
 The bottom status bar shows:
-- **Rows**: Total number of rows in current view
-- **Cols**: Total number of columns
+- **Row**: Current cursor position / total rows (updates as you navigate)
+- **Col**: Current column position / total columns
 - **Sort**: Current sort column and direction (if any)
 - **Filter**: Current filter expression (if any)
 
 Example:
 ```
-Rows: 7 | Cols: 4 | Filter: amount > 1000 | Sort: amount (desc)
+Row: 1,247/5,000 | Col: 3/4 | Filter: amount > 1000 | Sort: amount (desc)
 ```
+
+The status bar updates dynamically as you navigate through the data, helping you track your position in large datasets.
 
 ## Common Workflows
 
@@ -281,17 +326,23 @@ zea join customers.csv orders.csv --on=cust_id | zea view -
 
 ### Large Datasets
 
-For large datasets (millions of rows), the viewer shows the first 1000 rows. For full analysis, use command-line pipelines:
+The viewer supports scrolling through datasets of any size using `PgUp`/`PgDn`, `Home`/`End`, and arrow keys. All rows are accessible without limitations.
+
+For extremely large datasets (millions of rows), you can pre-filter or aggregate before viewing for better performance:
 
 ```bash
-# Use pipelines for large data
+# Pre-filter large data before viewing
 zea load "huge-data/*.parquet" \
   | zea filter "amount > 1000" \
+  | zea view -
+
+# Or aggregate first for summary view
+zea load "huge-data/*.parquet" \
   | zea group region --sum=amount \
   | zea view -
 ```
 
-The aggregated result will be small enough to explore interactively.
+The status bar always shows your current position (e.g., `Row: 1,247/1,000,000`) so you know where you are in the dataset.
 
 ## Troubleshooting
 
@@ -342,12 +393,11 @@ The viewer uses terminal colors for readability:
 
 ## Limitations
 
-- Table view shows first 1000 rows (filters and sorts apply to all data)
-- Values longer than 50 characters are truncated with "..."
+- Values longer than 50 characters are truncated with "..." in table view (press Enter to see full value)
 - Graphs show up to 10 bins for histograms
 - Bar charts show up to 20 unique values
 
-For full analysis of large datasets, use command-line pipelines and view aggregated results.
+The viewer handles datasets of any size with full scrolling support. For extremely large datasets (millions of rows), consider pre-filtering for better performance.
 
 ## Related Documentation
 

@@ -13,6 +13,7 @@ var (
 	loadParallel      int
 	loadFormat        string
 	loadSchemaPreview bool
+	loadOutput        string
 )
 
 var loadCmd = &cobra.Command{
@@ -77,6 +78,7 @@ func init() {
 	loadCmd.Flags().IntVar(&loadParallel, "parallel", 8, "Number of parallel workers for multi-file loading")
 	loadCmd.Flags().StringVar(&loadFormat, "format", "", "Filter by format (csv, parquet, json, etc.)")
 	loadCmd.Flags().BoolVar(&loadSchemaPreview, "schema-preview", false, "Show inferred schema without loading data")
+	loadCmd.Flags().StringVar(&loadOutput, "output", "csv", "Output format: csv, arrow (Arrow IPC)")
 }
 
 func runLoad(cmd *cobra.Command, args []string) error {
@@ -139,8 +141,15 @@ func runLoad(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Write to stdout
-	return zf.WriteCSV(os.Stdout)
+	// Write to stdout in specified format
+	switch loadOutput {
+	case "arrow":
+		return zf.WriteArrowIPC(os.Stdout)
+	case "csv":
+		return zf.WriteCSV(os.Stdout)
+	default:
+		return fmt.Errorf("unsupported output format: %s (use 'csv' or 'arrow')", loadOutput)
+	}
 }
 
 // contains checks if a string contains a substring
