@@ -1,5 +1,5 @@
 # ZeaShell 
-<img width="274" height="246" alt="image" src="https://github.com/user-attachments/assets/8d98f764-39be-4ae2-9846-d403e50c6a6e" />
+<img width="674" height="604" alt="image" src="https://github.com/user-attachments/assets/5b4cc264-c2f7-43a6-b36a-20a179238692" />
 
 **CSV to petabytes, one pipe at a time**
 
