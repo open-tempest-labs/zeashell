@@ -3,7 +3,7 @@ package cli
 import (
 	"os"
 
-	"github.com/open-tempest-labs/zeashell/internal/tui"
+	"github.com/open-tempest-labs/zeashell/tui"
 	"github.com/spf13/cobra"
 )
 

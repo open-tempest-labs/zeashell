@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/open-tempest-labs/zeashell/internal/zeaframe"
+	"github.com/open-tempest-labs/zeashell/zeaframe"
 	"github.com/spf13/cobra"
 )
 

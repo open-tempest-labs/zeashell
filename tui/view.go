@@ -5,8 +5,9 @@ import (
 	"io"
 	"os"
 
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/gdamore/tcell/v2"
-	"github.com/open-tempest-labs/zeashell/internal/zeaframe"
+	"github.com/open-tempest-labs/zeashell/zeaframe"
 	"github.com/rivo/tview"
 )
 
@@ -21,6 +22,7 @@ type Viewer struct {
 	sortAsc       bool
 	filterExpr    string
 	status        *tview.TextView
+	onWrite       func([]arrow.Record)
 }
 
 // RunViewFromSource launches the TUI viewer from a data source
@@ -326,6 +328,23 @@ func getTypeName(colType zeaframe.ColumnType) string {
 // Run starts the TUI application
 func (v *Viewer) Run() error {
 	return v.app.Run()
+}
+
+// RunViewFromArrow displays Arrow records directly in the TUI viewer.
+// schema and records are read in place — no IPC serialisation occurs.
+// onWrite, if non-nil, is called with the (possibly modified) record slice
+// when the user saves; pass nil for read-only views.
+func RunViewFromArrow(schema *arrow.Schema, records []arrow.Record, onWrite func([]arrow.Record)) error {
+	if !isTerminal() {
+		return fmt.Errorf("zea view requires a terminal (TTY)")
+	}
+	zf, err := zeaframe.FromArrow(schema, records)
+	if err != nil {
+		return fmt.Errorf("arrow: %w", err)
+	}
+	v := NewViewer(zf)
+	v.onWrite = onWrite
+	return v.Run()
 }
 
 // isTerminal checks if stdin/stdout are connected to a terminal

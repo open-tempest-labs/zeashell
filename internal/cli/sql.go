@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	"github.com/open-tempest-labs/zeashell/internal/duckdb"
+	"github.com/open-tempest-labs/zeashell/duckdb"
 	"github.com/spf13/cobra"
 )
 

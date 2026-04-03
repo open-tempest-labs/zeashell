@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"os"
+
 	"github.com/spf13/cobra"
 )
 
@@ -19,6 +21,13 @@ func Execute() error {
 }
 
 func init() {
+	// Record every invocation (except pluginize itself) to ~/.zea/history.
+	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
+		if len(os.Args) > 1 && os.Args[1] != "pluginize" {
+			appendHistory(formatArgs(os.Args[1:]))
+		}
+	}
+
 	rootCmd.AddCommand(loadCmd)
 	rootCmd.AddCommand(selectCmd)
 	rootCmd.AddCommand(filterCmd)
@@ -31,6 +40,7 @@ func init() {
 	rootCmd.AddCommand(unpivotCmd)
 	rootCmd.AddCommand(viewCmd)
 	rootCmd.AddCommand(sqlCmd)
+	rootCmd.AddCommand(pluginizeCmd)
 
 	// Load plugins from ~/.zea/plugins or $ZEA_PLUGINS
 	loadPlugins()

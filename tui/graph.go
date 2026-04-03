@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
-	"github.com/open-tempest-labs/zeashell/internal/zeaframe"
+	"github.com/open-tempest-labs/zeashell/zeaframe"
 	"github.com/rivo/tview"
 )
 

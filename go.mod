@@ -3,7 +3,7 @@ module github.com/open-tempest-labs/zeashell
 go 1.24.2
 
 require (
-	github.com/apache/arrow/go/v18 v18.0.0-20241007013041-ab95a4d25142
+	github.com/apache/arrow-go/v18 v18.1.0
 	github.com/gdamore/tcell/v2 v2.13.8
 	github.com/marcboeker/go-duckdb v1.8.5
 	github.com/rivo/tview v0.42.0
@@ -13,7 +13,6 @@ require (
 require (
 	github.com/JohnCGriffin/overflow v0.0.0-20211019200055-46fa312c352c // indirect
 	github.com/andybalholm/brotli v1.1.1 // indirect
-	github.com/apache/arrow-go/v18 v18.1.0 // indirect
 	github.com/apache/thrift v0.21.0 // indirect
 	github.com/gdamore/encoding v1.0.1 // indirect
 	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect

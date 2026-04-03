@@ -90,7 +90,7 @@ func ParseExpression(expr string) (*Expression, error) {
 	}
 
 	// Handle comparison operators
-	for _, op := range []string{">=", "<=", "!=", "=", ">", "<"} {
+	for _, op := range []string{">=", "<=", "!=", "~", "=", ">", "<"} {
 		pos := findOperator(expr, op)
 		if pos != -1 {
 			column := strings.TrimSpace(expr[:pos])
