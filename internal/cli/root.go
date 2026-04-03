@@ -13,7 +13,7 @@ var rootCmd = &cobra.Command{
 
 ZeaShell brings integrated data exploration and transformation to the command line - combining
 interactive discovery, powerful pipelines, and multi-valued data support for modern formats.`,
-	Version: "0.4.0",
+	Version: "0.5.0",
 }
 
 func Execute() error {

@@ -357,17 +357,18 @@ zea load "/mnt/datalake/events/year=2026/month=03/**/*.parquet" \
 zeashell/
 ├── cmd/zea/              # CLI entry point
 ├── internal/
-│   ├── zeaframe/         # DataFrame library
-│   │   ├── dataframe.go  # Core engine
-│   │   ├── parser.go     # Expression parser
-│   │   ├── io.go         # CSV/TSV/JSON I/O
-│   │   ├── parquet.go    # Parquet I/O
-│   │   ├── join.go       # Join operations
-│   │   ├── pivot.go      # Pivot/unpivot
-│   │   ├── glob.go       # Pattern matching
-│   │   └── union.go      # Multi-file loading
-│   ├── cli/              # Commands
-│   └── tui/              # Interactive viewer
+│   └── cli/              # Commands (internal)
+├── zeaframe/             # Public DataFrame library
+│   ├── dataframe.go      # Core engine
+│   ├── parser.go         # Expression parser
+│   ├── io.go             # CSV/TSV/JSON I/O
+│   ├── parquet.go        # Parquet I/O
+│   ├── join.go           # Join operations
+│   ├── pivot.go          # Pivot/unpivot
+│   ├── glob.go           # Pattern matching
+│   └── union.go          # Multi-file loading
+├── tui/                  # Public interactive viewer
+├── duckdb/               # Public DuckDB SQL integration
 ├── docs/                 # Documentation
 └── examples/             # Sample data and demos
 ```
@@ -423,10 +424,10 @@ zea load "/mnt/*/sales/*.parquet" | zea filter "amount > 1000"
 
 ## ZeaFrame Library
 
-ZeaShell embeds the **ZeaFrame** DataFrame library for programmatic use:
+The **ZeaFrame** DataFrame library is a public Go package that can be imported directly by other projects (such as [ZeaOS](https://github.com/open-tempest-labs/zeaos)):
 
 ```go
-import "github.com/open-tempest-labs/zeashell/internal/zeaframe"
+import "github.com/open-tempest-labs/zeashell/zeaframe"
 
 // Load from CSV
 file, _ := os.Open("sales.csv")
@@ -445,6 +446,14 @@ result, _ := zf.GroupBy("customer").Agg(map[string]string{
 // Write output
 result.WriteCSV(os.Stdout)
 ```
+
+The following packages are also exported for use in dependent projects:
+
+| Package | Import Path | Description |
+|---------|-------------|-------------|
+| `zeaframe` | `github.com/open-tempest-labs/zeashell/zeaframe` | Columnar DataFrame library |
+| `tui` | `github.com/open-tempest-labs/zeashell/tui` | Interactive terminal UI viewer |
+| `duckdb` | `github.com/open-tempest-labs/zeashell/duckdb` | DuckDB SQL integration |
 
 ## Contributing
 
