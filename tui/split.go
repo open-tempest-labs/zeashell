@@ -67,19 +67,17 @@ func RunSplitViewFromArrow(panes []SplitPane, orientation string) error {
 	}
 
 	// App-level Tab / Shift-Tab to cycle panes; q to quit.
-	// Tab is suppressed while the focused pane has an overlay open so that
-	// Esc / 'd' / 'q' inside the overlay can close it without Tab stealing focus.
+	// Tab always cycles, even when an overlay is open — this lets users open
+	// a graph (or schema view) in each pane and compare them side-by-side.
+	// Returning to a pane that has an overlay open re-focuses the overlay
+	// correctly because setFocus targets v.pages (not v.table directly).
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
 		case tcell.KeyTab:
-			if !viewers[focused].HasOverlay() {
-				setFocus((focused + 1) % len(viewers))
-			}
+			setFocus((focused + 1) % len(viewers))
 			return nil
 		case tcell.KeyBacktab:
-			if !viewers[focused].HasOverlay() {
-				setFocus((focused + len(viewers) - 1) % len(viewers))
-			}
+			setFocus((focused + len(viewers) - 1) % len(viewers))
 			return nil
 		}
 		return event
