@@ -51,7 +51,10 @@ func RunSplitViewFromArrow(panes []SplitPane, orientation string) error {
 		// highlight the incoming pane border
 		viewers[focused].table.SetBorderColor(tcell.ColorYellow)
 		viewers[focused].table.SetTitle(fmt.Sprintf(" [yellow]%s[-] ", panes[focused].Name))
-		app.SetFocus(viewers[focused].table)
+		// Focus the pages widget (not the table directly) so that Pages can
+		// properly delegate focus to whichever page is frontmost — including
+		// any overlay (filter dialog, schema view, cell detail) that is open.
+		app.SetFocus(viewers[focused].pages)
 	}
 
 	dir := tview.FlexRow
@@ -64,13 +67,19 @@ func RunSplitViewFromArrow(panes []SplitPane, orientation string) error {
 	}
 
 	// App-level Tab / Shift-Tab to cycle panes; q to quit.
+	// Tab is suppressed while the focused pane has an overlay open so that
+	// Esc / 'd' / 'q' inside the overlay can close it without Tab stealing focus.
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
 		case tcell.KeyTab:
-			setFocus((focused + 1) % len(viewers))
+			if !viewers[focused].HasOverlay() {
+				setFocus((focused + 1) % len(viewers))
+			}
 			return nil
 		case tcell.KeyBacktab:
-			setFocus((focused + len(viewers) - 1) % len(viewers))
+			if !viewers[focused].HasOverlay() {
+				setFocus((focused + len(viewers) - 1) % len(viewers))
+			}
 			return nil
 		}
 		return event

@@ -325,6 +325,14 @@ func getTypeName(colType zeaframe.ColumnType) string {
 	}
 }
 
+// HasOverlay reports whether a modal page is currently shown on top of "main".
+// Used by the split-pane controller to avoid switching focus away from an
+// open overlay (filter dialog, schema view, cell detail, etc.).
+func (v *Viewer) HasOverlay() bool {
+	name, _ := v.pages.GetFrontPage()
+	return name != "main"
+}
+
 // Run starts the TUI application
 func (v *Viewer) Run() error {
 	return v.app.Run()
